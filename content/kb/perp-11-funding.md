@@ -15,8 +15,10 @@ sources:
 
 资金费率（Funding）是永续合约中用于让合约价格贴近现货价格的一种机制。
 
-- Funding 是 **多空双方之间的定期交换**
-- Funding 支付并非交易手续费
+- Funding 通常是 **多空双方之间的定期交换**
+- Funding **不是**每笔成交收取的交易手续费
+
+> OneKey 帮助中心中提到 “OneKey 不收取资金费率（Funding Rate）”。建议理解为：OneKey 不会向你额外加收 Funding 费用；Funding 机制本身如何产生与结算，仍以 Hyperliquid 规则为准。
 
 ## 2) Hyperliquid 的 Funding 频率
 
