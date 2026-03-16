@@ -44,6 +44,27 @@ sources:
 
 > 默认是公开站点（不加权限）。
 
+## 管理后台（GitHub 登录白名单）
+
+本项目支持公开阅读页 + 私有管理后台：
+
+- 公开页：`/`、`/kb/<slug>`
+- 后台页：`/admin`、`/admin/kb/<slug>`
+
+后台仅允许白名单中的 GitHub 账号登录访问。请在部署环境中配置：
+
+```bash
+AUTH_SECRET=随机长字符串
+AUTH_GITHUB_ID=你的 GitHub OAuth App Client ID
+AUTH_GITHUB_SECRET=你的 GitHub OAuth App Client Secret
+ADMIN_GITHUB_USERS=sanmao2311
+```
+
+说明：
+
+- `ADMIN_GITHUB_USERS` 支持多个 GitHub 用户名，以英文逗号分隔
+- 后台中的发布、删除等操作都只会在登录且命中白名单后可用
+
 ## 删除文章功能（GitHub 仓库删除）
 
 如果你希望在线上页面点击“删除文章”后，直接删除 GitHub 仓库中的 `content/kb/<slug>.md` 文件，请在部署环境中配置以下变量：
@@ -58,8 +79,30 @@ GITHUB_TOKEN=你的 GitHub Token
 说明：
 
 - `GITHUB_TOKEN` 需要对当前仓库具有 **Contents: Read and write** 权限
-- 配置完成后，删除按钮会通过 GitHub API 删除对应文章文件，并触发新的部署
+- 配置完成后，后台删除按钮会通过 GitHub API 删除对应文章文件，并触发新的部署
 - 如果未配置 `GITHUB_TOKEN`，删除功能只会在本地开发环境删除本地文件
+
+## 发布到 Intercom（预留接入）
+
+后台已预留“发布到 Intercom”按钮，当前默认会调用一个服务端发布接口。请在部署环境中配置：
+
+```bash
+INTERCOM_PUBLISH_WEBHOOK_URL=你的发布接口地址
+INTERCOM_PUBLISH_WEBHOOK_TOKEN=可选的 Bearer Token
+```
+
+当前按钮会把以下文章数据 POST 到你的发布接口：
+
+- `slug`
+- `title`
+- `description`
+- `html`
+- `markdown`
+- `tags`
+- `createdAt`
+- `sources`
+
+如果你愿意，我可以下一步继续把你已经验证好的 Intercom 发布逻辑直接改写进项目服务端 API，而不是走 webhook 中转。
 
 ## 复制粘贴建议
 

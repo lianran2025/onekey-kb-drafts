@@ -1,6 +1,5 @@
 import { getAllSlugs, getArticle } from '@/lib/kb';
 import { CopyButtons } from './CopyButtons';
-import { DeleteButton } from './DeleteButton';
 
 export const dynamic = 'force-static';
 
@@ -23,7 +22,6 @@ export default async function KbArticlePage({
       <h1 className="h1">{title}</h1>
 
       <CopyButtons articleSelector="#article" />
-      <DeleteButton slug={slug} />
 
       <hr className="hr" />
 

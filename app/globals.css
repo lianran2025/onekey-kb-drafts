@@ -16,7 +16,9 @@ a:hover{text-decoration:underline}
 .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;background:#0e1520;border:1px solid var(--border);padding:2px 6px;border-radius:6px}
 .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);background:var(--btn);color:var(--text);padding:10px 12px;border-radius:10px;cursor:pointer;font-size:14px}
 .btn:hover{background:var(--btnHover)}
+.btn-small{padding:7px 10px;font-size:13px}
 .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.admin-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:12px 0}
 .hr{height:1px;background:var(--border);border:0;margin:18px 0}
 .article{background:white;color:#111;border-radius:10px;padding:26px}
 .article a{color:#0b5fff}
