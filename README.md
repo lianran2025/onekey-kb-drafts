@@ -44,6 +44,23 @@ sources:
 
 > 默认是公开站点（不加权限）。
 
+## 删除文章功能（GitHub 仓库删除）
+
+如果你希望在线上页面点击“删除文章”后，直接删除 GitHub 仓库中的 `content/kb/<slug>.md` 文件，请在部署环境中配置以下变量：
+
+```bash
+GITHUB_OWNER=lianran2025
+GITHUB_REPO=onekey-kb-drafts
+GITHUB_BRANCH=main
+GITHUB_TOKEN=你的 GitHub Token
+```
+
+说明：
+
+- `GITHUB_TOKEN` 需要对当前仓库具有 **Contents: Read and write** 权限
+- 配置完成后，删除按钮会通过 GitHub API 删除对应文章文件，并触发新的部署
+- 如果未配置 `GITHUB_TOKEN`，删除功能只会在本地开发环境删除本地文件
+
 ## 复制粘贴建议
 
 - 优先用「复制（富文本/HTML）」
