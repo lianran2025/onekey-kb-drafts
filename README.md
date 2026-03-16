@@ -82,27 +82,24 @@ GITHUB_TOKEN=你的 GitHub Token
 - 配置完成后，后台删除按钮会通过 GitHub API 删除对应文章文件，并触发新的部署
 - 如果未配置 `GITHUB_TOKEN`，删除功能只会在本地开发环境删除本地文件
 
-## 发布到 Intercom（预留接入）
+## 发布到 Intercom（直连）
 
-后台已预留“发布到 Intercom”按钮，当前默认会调用一个服务端发布接口。请在部署环境中配置：
+后台页面现在会实时读取 Intercom 的 collections，并允许管理员在发布前选择目标 collection。
+
+请在部署环境中配置：
 
 ```bash
-INTERCOM_PUBLISH_WEBHOOK_URL=你的发布接口地址
-INTERCOM_PUBLISH_WEBHOOK_TOKEN=可选的 Bearer Token
+INTERCOM_REGION=us
+INTERCOM_ACCESS_TOKEN=你的 Intercom Access Token
+INTERCOM_LOCALE=zh-CN
 ```
 
-当前按钮会把以下文章数据 POST 到你的发布接口：
+说明：
 
-- `slug`
-- `title`
-- `description`
-- `html`
-- `markdown`
-- `tags`
-- `createdAt`
-- `sources`
-
-如果你愿意，我可以下一步继续把你已经验证好的 Intercom 发布逻辑直接改写进项目服务端 API，而不是走 webhook 中转。
+- `INTERCOM_REGION` 支持 `us`、`eu`、`au`
+- 后台会通过 Intercom API 读取 collection 列表
+- 发布按钮会直接把当前文章发布到你选择的 collection
+- Intercom token 仅在服务端使用，不会暴露到前端
 
 ## 复制粘贴建议
 

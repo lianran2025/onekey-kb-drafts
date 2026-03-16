@@ -3,7 +3,7 @@ import { getArticle } from '@/lib/kb';
 import { redirect } from 'next/navigation';
 import { CopyButtons } from '@/app/kb/[slug]/CopyButtons';
 import { DeleteButton } from './DeleteButton';
-import { PublishButton } from './PublishButton';
+import { PublishPanel } from './PublishPanel';
 
 export default async function AdminArticlePage({
   params,
@@ -27,9 +27,10 @@ export default async function AdminArticlePage({
 
       <div className="admin-actions">
         <CopyButtons articleSelector="#article" />
-        <PublishButton slug={slug} />
         <DeleteButton slug={slug} />
       </div>
+
+      <PublishPanel slug={slug} />
 
       <hr className="hr" />
 

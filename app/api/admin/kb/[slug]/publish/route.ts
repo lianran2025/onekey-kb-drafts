@@ -1,9 +1,10 @@
 import { auth } from '@/auth';
 import { getArticle } from '@/lib/kb';
+import { buildOpenUrl, publishArticle, validateIntercomConfig } from '@/lib/intercom';
 import { NextResponse } from 'next/server';
 
 export async function POST(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ slug: string }> }
 ) {
   const session = await auth();
@@ -11,57 +12,37 @@ export async function POST(
     return NextResponse.json({ error: '未授权' }, { status: 401 });
   }
 
-  const publishWebhook = process.env.INTERCOM_PUBLISH_WEBHOOK_URL;
-
-  if (!publishWebhook) {
-    return NextResponse.json(
-      {
-        error:
-          '尚未配置 INTERCOM_PUBLISH_WEBHOOK_URL。请先把你已验证的发布逻辑接入该接口，或提供发布代码让我继续接入。',
-      },
-      { status: 400 }
-    );
-  }
-
   try {
+    validateIntercomConfig();
+
+    const body = (await request.json().catch(() => ({}))) as { collectionId?: string; state?: string; locale?: string };
+    const collectionId = String(body.collectionId || '').trim();
+    const state = String(body.state || 'draft');
+    const locale = String(body.locale || process.env.INTERCOM_LOCALE || 'zh-CN');
+
+    if (!collectionId) {
+      return NextResponse.json({ error: 'collectionId is required' }, { status: 400 });
+    }
+
     const { slug } = await context.params;
     const article = getArticle(slug);
 
-    const payload = {
-      slug,
-      title: article.frontmatter.title,
-      description: article.frontmatter.description,
-      html: article.html,
-      markdown: article.markdown,
-      tags: article.frontmatter.tags || [],
-      createdAt: article.frontmatter.createdAt,
-      sources: article.frontmatter.sources || [],
-    };
-
-    const res = await fetch(publishWebhook, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(process.env.INTERCOM_PUBLISH_WEBHOOK_TOKEN
-          ? { Authorization: `Bearer ${process.env.INTERCOM_PUBLISH_WEBHOOK_TOKEN}` }
-          : {}),
+    const result = await publishArticle({
+      article: {
+        title: article.frontmatter.title,
+        body: article.markdown,
+        needsConfirmation: [],
       },
-      body: JSON.stringify(payload),
-      cache: 'no-store',
+      collectionId,
+      locale,
+      state,
     });
 
-    if (!res.ok) {
-      return NextResponse.json(
-        { error: `发布失败：${await res.text()}` },
-        { status: 500 }
-      );
-    }
-
-    const data = await res.json().catch(() => null);
     return NextResponse.json({
       ok: true,
-      message: data?.message || '已调用发布接口',
-      data,
+      article: result,
+      openUrl: buildOpenUrl(result as Record<string, any>, { locale }),
+      message: '发布成功',
     });
   } catch (error) {
     return NextResponse.json(
