@@ -6,7 +6,8 @@ const REGION_HOSTS: Record<string, string> = {
 
 export type IntercomDraftArticle = {
   title: string;
-  body: string;
+  body?: string;
+  html?: string;
   needsConfirmation?: string[];
 };
 
@@ -180,6 +181,10 @@ function renderMarkdownBlocks(text: string) {
 }
 
 function renderArticleHtml(article: IntercomDraftArticle, locale: string) {
+  if (article.html && String(article.html).trim()) {
+    return String(article.html).trim();
+  }
+
   const lines = renderMarkdownBlocks(article.body || '');
   const notes: string[] = [];
 

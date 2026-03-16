@@ -30,7 +30,7 @@ export async function POST(
     const result = await publishArticle({
       article: {
         title: article.frontmatter.title,
-        body: article.markdown,
+        html: article.html,
         needsConfirmation: [],
       },
       collectionId,

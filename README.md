@@ -98,7 +98,8 @@ INTERCOM_LOCALE=zh-CN
 
 - `INTERCOM_REGION` 支持 `us`、`eu`、`au`
 - 后台会通过 Intercom API 读取 collection 列表
-- 发布按钮会直接把当前文章发布到你选择的 collection
+- 发布按钮会直接把当前文章渲染后的 HTML 发布到你选择的 collection
+- 参考来源模块不会被发布到 Intercom
 - Intercom token 仅在服务端使用，不会暴露到前端
 
 ## 复制粘贴建议
