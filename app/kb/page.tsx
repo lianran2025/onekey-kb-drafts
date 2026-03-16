@@ -11,15 +11,12 @@ export default function KbIndexPage() {
       slug,
       title: a.frontmatter.title,
       description: a.frontmatter.description,
-      createdAt: a.frontmatter.createdAt,
     };
   });
 
   return (
     <div className="card">
       <h1 className="h1">文章列表</h1>
-      <p className="muted">每篇文章都是一个独立页面，打开后可复制整篇内容。</p>
-      <hr className="hr" />
 
       {items.length === 0 ? (
         <p className="muted">暂无文章。你可以先放一个 markdown 到 content/kb/*.md</p>
@@ -31,12 +28,8 @@ export default function KbIndexPage() {
                 <a href={`/kb/${it.slug}`} style={{ fontWeight: 700 }}>
                   {it.title}
                 </a>
-                {it.createdAt ? <span className="badge">{it.createdAt}</span> : null}
               </div>
               {it.description ? <div className="muted">{it.description}</div> : null}
-              <div className="muted" style={{ fontSize: 12 }}>
-                /kb/{it.slug}
-              </div>
             </li>
           ))}
         </ol>
