@@ -190,17 +190,25 @@ function applyInlineStyleToTag(html: string, tag: string, style: string) {
   });
 }
 
+function unwrapTag(html: string, tag: string) {
+  const pattern = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\/${tag}>`, 'gi');
+  return html.replace(pattern, '$1');
+}
+
 function normalizeIntercomStructure(html: string) {
   let output = String(html || '').trim();
 
   output = output.replace(/<blockquote>\s*<p>([\s\S]*?)<\/p>\s*<\/blockquote>/gi, '<blockquote>$1</blockquote>');
   output = output.replace(/<li>\s*<p>([\s\S]*?)<\/p>\s*<\/li>/gi, '<li>$1</li>');
   output = output.replace(/<p>\s*<\/p>/gi, '');
+  output = output.replace(/<blockquote>\s*(?:<strong[^>]*>)?\s*提示[:：]?\s*(?:<\/strong>)?\s*([\s\S]*?)<\/blockquote>/gi, '<p><strong>提示：</strong>$1</p>');
+  output = output.replace(/<blockquote>\s*([\s\S]*?)<\/blockquote>/gi, '<p><strong>提示：</strong>$1</p>');
+  output = output.replace(/<p>\s*(<strong[^>]*>提示[:：]?<\/strong>)\s*<\/p>/gi, '<p>$1</p>');
   output = output.replace(/(<\/p>)\s*(<p>)/gi, '$1$2');
-  output = output.replace(/(<\/blockquote>)\s*(<p>)/gi, '$1$2');
-  output = output.replace(/(<\/p>)\s*(<blockquote>)/gi, '$1$2');
   output = output.replace(/(<\/ul>|<\/ol>)\s*(<p>)/gi, '$1$2');
   output = output.replace(/(<\/p>)\s*(<ul>|<ol>)/gi, '$1$2');
+  output = output.replace(/<p>\s*(<(?:ul|ol)[\s\S]*?<\/(?:ul|ol)>)\s*<\/p>/gi, '$1');
+  output = unwrapTag(output, 'div');
   output = output.replace(/\n+/g, '');
   output = output.replace(/>\s+</g, '><');
 
@@ -210,14 +218,13 @@ function normalizeIntercomStructure(html: string) {
 function toIntercomHtml(html: string) {
   let output = normalizeIntercomStructure(html);
 
-  output = applyInlineStyleToTag(output, 'h1', 'font-size:32px;line-height:1.35;margin:0 0 18px;font-weight:700;color:#111827;');
-  output = applyInlineStyleToTag(output, 'h2', 'font-size:24px;line-height:1.45;margin:20px 0 10px;font-weight:700;color:#111827;');
-  output = applyInlineStyleToTag(output, 'h3', 'font-size:20px;line-height:1.5;margin:16px 0 8px;font-weight:700;color:#111827;');
-  output = applyInlineStyleToTag(output, 'p', 'margin:8px 0;line-height:1.7;color:#111827;');
-  output = applyInlineStyleToTag(output, 'ul', 'margin:8px 0 8px 24px;padding:0;');
-  output = applyInlineStyleToTag(output, 'ol', 'margin:8px 0 8px 24px;padding:0;');
-  output = applyInlineStyleToTag(output, 'li', 'margin:4px 0;line-height:1.7;color:#111827;');
-  output = applyInlineStyleToTag(output, 'blockquote', 'margin:12px 0;padding:10px 14px;border-left:4px solid #d1d5db;background:#f8fafc;color:#374151;');
+  output = applyInlineStyleToTag(output, 'h1', 'font-size:32px;line-height:1.35;margin:0 0 14px;font-weight:700;color:#111827;');
+  output = applyInlineStyleToTag(output, 'h2', 'font-size:24px;line-height:1.45;margin:16px 0 8px;font-weight:700;color:#111827;');
+  output = applyInlineStyleToTag(output, 'h3', 'font-size:20px;line-height:1.5;margin:12px 0 6px;font-weight:700;color:#111827;');
+  output = applyInlineStyleToTag(output, 'p', 'margin:6px 0;line-height:1.65;color:#111827;');
+  output = applyInlineStyleToTag(output, 'ul', 'margin:6px 0 6px 22px;padding:0;');
+  output = applyInlineStyleToTag(output, 'ol', 'margin:6px 0 6px 22px;padding:0;');
+  output = applyInlineStyleToTag(output, 'li', 'margin:2px 0;line-height:1.65;color:#111827;');
   output = applyInlineStyleToTag(output, 'a', 'color:#2563eb;text-decoration:underline;');
   output = applyInlineStyleToTag(output, 'strong', 'font-weight:700;color:#111827;');
 
