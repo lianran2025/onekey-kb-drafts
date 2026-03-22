@@ -16,39 +16,45 @@ export default function KbIndexPage() {
   });
 
   return (
-    <div className="page-stack">
-      <section className="hero-card public-hero">
-        <div>
-          <span className="eyebrow">OneKey KB Drafts</span>
-          <h1 className="hero-title">文章列表</h1>
-          <p className="hero-subtitle">查看草稿文章、打开单篇页面，并复制到 Intercom 或进入后台管理。</p>
+    <div className="homepage-shell">
+      <section className="homepage-hero">
+        <div className="homepage-hero-copy">
+          <span className="homepage-eyebrow">Digital Curator</span>
+          <h1 className="homepage-title">Draft Articles</h1>
+          <p className="homepage-subtitle">
+            Manage your upcoming knowledge base entries. Refine technical documentation and streamline
+            the publication workflow for the OneKey ecosystem.
+          </p>
         </div>
       </section>
 
-      <section className="surface-card">
+      <section className="homepage-grid-wrap">
         {items.length === 0 ? (
-          <p className="muted">暂无文章。你可以先放一个 markdown 到 content/kb/*.md</p>
+          <div className="surface-card">
+            <p className="muted">暂无文章。你可以先放一个 markdown 到 content/kb/*.md</p>
+          </div>
         ) : (
-          <div className="kb-grid">
-            {items.map((it) => (
-              <article key={it.slug} className="kb-card">
-                <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <a href={`/kb/${it.slug}`} className="kb-card-title">
+          <div className="homepage-grid">
+            {items.map((it, index) => (
+              <article key={it.slug} className="homepage-card glass-card">
+                <div className="homepage-card-body">
+                  <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <span className="homepage-card-index">{String(index + 1).padStart(2, '0')}</span>
+                    {it.tags.length > 0 ? <span className="tag-chip">{it.tags[0]}</span> : null}
+                  </div>
+
+                  <a href={`/kb/${it.slug}`} className="homepage-card-title">
                     {it.title}
                   </a>
-                  <span className="badge">KB</span>
+
+                  {it.description ? <p className="homepage-card-desc">{it.description}</p> : null}
                 </div>
-                {it.description ? <p className="kb-card-desc">{it.description}</p> : null}
-                {it.tags.length > 0 ? (
-                  <div className="tag-list">
-                    {it.tags.slice(0, 4).map((tag) => (
-                      <span key={tag} className="tag-chip">{tag}</span>
-                    ))}
-                  </div>
-                ) : null}
-                <div className="row">
-                  <a className="text-link" href={`/kb/${it.slug}`}>查看文章</a>
-                  <a className="text-link muted" href={`/admin/kb/${it.slug}`}>后台管理</a>
+
+                <div className="homepage-card-footer">
+                  <a className="homepage-card-link" href={`/kb/${it.slug}`}>
+                    <span>View Article</span>
+                    <span aria-hidden="true">→</span>
+                  </a>
                 </div>
               </article>
             ))}
