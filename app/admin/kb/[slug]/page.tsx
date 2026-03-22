@@ -1,9 +1,8 @@
-import { auth } from '@/auth';
 import { getArticle } from '@/lib/kb';
-import { redirect } from 'next/navigation';
 import { CopyButtons } from '@/app/kb/[slug]/CopyButtons';
 import { DeleteButton } from './DeleteButton';
 import { PublishPanel } from './PublishPanel';
+import { requireAdminSession } from '@/lib/auth-guard';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,8 +11,7 @@ export default async function AdminArticlePage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const session = await auth();
-  if (!session) redirect('/login');
+  await requireAdminSession();
 
   const { slug } = await params;
   const article = getArticle(slug);
@@ -37,9 +35,6 @@ export default async function AdminArticlePage({
           <div className="row">
             <a className="btn btn-ghost" href="/admin">
               返回后台
-            </a>
-            <a className="btn" href={`/kb/${slug}`} target="_blank" rel="noreferrer">
-              Public Page
             </a>
           </div>
         </div>

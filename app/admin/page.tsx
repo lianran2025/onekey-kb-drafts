@@ -1,13 +1,12 @@
-import { auth, signOut } from '@/auth';
-import { redirect } from 'next/navigation';
+import { signOut } from '@/auth';
 import { getAllSlugs, getArticle } from '@/lib/kb';
 import { BulkDeletePanel } from './BulkDeletePanel';
+import { requireAdminSession } from '@/lib/auth-guard';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminPage() {
-  const session = await auth();
-  if (!session) redirect('/login');
+  await requireAdminSession();
 
   const slugs = getAllSlugs();
   const items = slugs.map((slug) => {
@@ -39,7 +38,7 @@ export default async function AdminPage() {
           <form
             action={async () => {
               'use server';
-              await signOut({ redirectTo: '/' });
+              await signOut({ redirectTo: '/login' });
             }}
           >
             <button className="btn" type="submit">退出登录</button>

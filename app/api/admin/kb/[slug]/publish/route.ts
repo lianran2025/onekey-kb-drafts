@@ -1,16 +1,14 @@
-import { auth } from '@/auth';
 import { getArticle } from '@/lib/kb';
 import { buildOpenUrl, publishArticle, validateIntercomConfig } from '@/lib/intercom';
 import { NextResponse } from 'next/server';
+import { requireAdminApiSession, unauthorizedJson } from '@/lib/auth-guard';
 
 export async function POST(
   request: Request,
   context: { params: Promise<{ slug: string }> }
 ) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: '未授权' }, { status: 401 });
-  }
+  const session = await requireAdminApiSession();
+  if (!session) return unauthorizedJson();
 
   try {
     validateIntercomConfig();

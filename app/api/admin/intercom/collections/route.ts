@@ -1,12 +1,10 @@
-import { auth } from '@/auth';
 import { getCollections, validateIntercomConfig } from '@/lib/intercom';
 import { NextResponse } from 'next/server';
+import { requireAdminApiSession, unauthorizedJson } from '@/lib/auth-guard';
 
 export async function GET() {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: '未授权' }, { status: 401 });
-  }
+  const session = await requireAdminApiSession();
+  if (!session) return unauthorizedJson();
 
   try {
     validateIntercomConfig();

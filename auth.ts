@@ -1,12 +1,6 @@
 import NextAuth from 'next-auth';
 import Resend from 'next-auth/providers/resend';
-
-function getAllowedEmails() {
-  return (process.env.ADMIN_EMAILS || '')
-    .split(',')
-    .map((item) => item.trim().toLowerCase())
-    .filter(Boolean);
-}
+import { isAllowedEmail } from '@/lib/auth-guard';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.AUTH_SECRET || 'dev-only-secret-change-in-vercel',
@@ -26,10 +20,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   callbacks: {
     async signIn({ user }) {
-      const allowedEmails = getAllowedEmails();
-      if (allowedEmails.length === 0) return false;
-      const email = String(user.email || '').toLowerCase();
-      return allowedEmails.includes(email);
+      return isAllowedEmail(user.email);
     },
     async session({ session, token }) {
       if (session.user) {
@@ -38,12 +29,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return session;
     },
+    async jwt({ token, user }) {
+      if (user?.email) {
+        token.email = user.email;
+      }
+      return token;
+    },
     authorized({ auth, request: { nextUrl } }) {
       const isAuthRoute = nextUrl.pathname.startsWith('/api/auth');
       const isLoginPage = nextUrl.pathname === '/login';
-      if (isAuthRoute) return true;
-      if (isLoginPage) return true;
-      return !!auth;
+      if (isAuthRoute || isLoginPage) return true;
+      return isAllowedEmail(auth?.user?.email);
     },
   },
   trustHost: true,

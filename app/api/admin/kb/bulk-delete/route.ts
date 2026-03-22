@@ -1,8 +1,8 @@
-import { auth } from '@/auth';
 import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
 import fs from 'node:fs';
 import path from 'node:path';
+import { requireAdminApiSession, unauthorizedJson } from '@/lib/auth-guard';
 
 const GITHUB_OWNER = process.env.GITHUB_OWNER || 'lianran2025';
 const GITHUB_REPO = process.env.GITHUB_REPO || 'onekey-kb-drafts';
@@ -52,10 +52,8 @@ function deleteLocal(slug: string) {
 }
 
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: '未授权' }, { status: 401 });
-  }
+  const session = await requireAdminApiSession();
+  if (!session) return unauthorizedJson();
 
   try {
     const body = (await request.json()) as { slugs?: string[] };
