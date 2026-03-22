@@ -19,49 +19,75 @@ export default async function AdminArticlePage({
   const article = getArticle(slug);
 
   return (
-    <div className="page-stack">
-      <section className="hero-card article-hero">
-        <div>
-          <span className="eyebrow">Admin Editor</span>
-          <h1 className="hero-title">{article.frontmatter.title}</h1>
-          <p className="hero-subtitle">在这里复制文章、选择 Intercom collection、发布文章或执行删除。</p>
+    <div className="article-page-shell">
+      <header className="article-topbar">
+        <div className="article-breadcrumbs">
+          <a href="/">Articles</a>
+          <span>›</span>
+          <a href="/admin">Backend</a>
+          <span>›</span>
+          <span className="active">Article Management</span>
         </div>
-        <div className="row">
-          <a className="btn btn-ghost" href="/admin">返回后台</a>
-          <a className="btn btn-ghost" href={`/kb/${slug}`} target="_blank" rel="noreferrer">
-            查看公开页
-          </a>
-        </div>
-      </section>
 
-      <section className="surface-card">
-        <div className="section-head">
-          <div>
-            <h2 className="section-title">管理操作</h2>
-            <p className="muted">先选择目标 collection，再发布到 Intercom。</p>
+        <div className="article-hero-header">
+          <div className="article-hero-copy">
+            <span className="homepage-eyebrow">Digital Archive ID</span>
+            <h1 className="article-display-title">{article.frontmatter.title}</h1>
+          </div>
+          <div className="row">
+            <a className="btn btn-ghost" href="/admin">
+              返回后台
+            </a>
+            <a className="btn" href={`/kb/${slug}`} target="_blank" rel="noreferrer">
+              Public Page
+            </a>
           </div>
         </div>
+      </header>
 
-        <div className="admin-actions">
-          <CopyButtons articleSelector="#article" />
-          <DeleteButton slug={slug} />
-        </div>
+      <div className="article-layout-grid article-layout-grid-admin">
+        <aside className="article-side-panel glass-card admin-side-panel">
+          <section className="article-side-section">
+            <h3 className="article-side-title">Asset Controls</h3>
+            <div className="article-side-actions admin-action-stack">
+              <CopyButtons articleSelector="#article" />
+              <DeleteButton slug={slug} />
+            </div>
+          </section>
 
-        <PublishPanel slug={slug} />
-      </section>
+          <section className="article-side-section intercom-sync-card">
+            <h3 className="article-side-title article-side-title-bright">Intercom Sync</h3>
+            <PublishPanel slug={slug} />
+          </section>
 
-      <section className="surface-card">
-        <div className="section-head">
-          <div>
-            <h2 className="section-title">文章预览</h2>
-            <p className="muted">下方为当前文章的渲染结果。</p>
+          <section className="article-side-section meta-card-dark">
+            <div className="meta-block">
+              <p className="meta-label">Current Draft</p>
+              <p className="meta-value">{slug}</p>
+            </div>
+            <div className="row">
+              <span className="badge">Admin</span>
+              <span className="badge">Preview Ready</span>
+            </div>
+          </section>
+        </aside>
+
+        <main className="article-preview-wrap">
+          <div className="article-paper admin-article-paper">
+            <div className="article-paper-head">
+              <h1 className="article-paper-title">{article.frontmatter.title}</h1>
+              <div className="article-paper-meta">
+                <span>Admin Preview</span>
+                <span>Draft Source</span>
+              </div>
+            </div>
+
+            <section id="article" className="article article-prose">
+              <div dangerouslySetInnerHTML={{ __html: article.html }} />
+            </section>
           </div>
-        </div>
-
-        <section id="article" className="article article-shell">
-          <div dangerouslySetInnerHTML={{ __html: article.html }} />
-        </section>
-      </section>
+        </main>
+      </div>
     </div>
   );
 }
