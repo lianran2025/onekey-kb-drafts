@@ -35,7 +35,7 @@ export async function PUT(
     validateIntercomConfig();
     const { id } = await context.params;
     const body = (await request.json()) as {
-      draft?: { title?: string; body?: string; needsConfirmation?: string[] };
+      draft?: { title?: string; body?: string; html?: string; needsConfirmation?: string[] };
       collectionId?: string;
       locale?: string;
       state?: string;
@@ -51,7 +51,8 @@ export async function PUT(
       articleId: id,
       article: {
         title: String(body.draft.title || ''),
-        body: String(body.draft.body || ''),
+        body: body.draft.body ? String(body.draft.body) : undefined,
+        html: body.draft.html ? String(body.draft.html) : undefined,
         needsConfirmation: body.draft.needsConfirmation || [],
       },
       collectionId: String(body.collectionId || '').trim(),

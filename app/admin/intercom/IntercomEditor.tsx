@@ -8,8 +8,11 @@ type LoadedArticle = {
   id: string;
   title: string;
   body: string;
+  html: string;
   state: string;
   collectionId: string;
+  collectionPathIds: string[];
+  collectionPathLabel: string;
 };
 
 export function IntercomEditor() {
@@ -17,23 +20,9 @@ export function IntercomEditor() {
   const [article, setArticle] = useState<LoadedArticle | null>(null);
   const [collections, setCollections] = useState<CollectionItem[]>([]);
   const [selectedPath, setSelectedPath] = useState<string[]>([]);
+  const [editMode, setEditMode] = useState<'markdown' | 'html'>('markdown');
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const getCollectionById = (id: string) => collections.find((item) => item.id === id) || null;
-
-  const buildCollectionChain = (collectionId: string) => {
-    if (!collectionId) return [];
-    const chain: string[] = [];
-    let current = getCollectionById(collectionId);
-
-    for (let depth = 0; depth < 10 && current; depth += 1) {
-      chain.unshift(current.id);
-      current = current.parentId ? getCollectionById(current.parentId) : null;
-    }
-
-    return chain;
-  };
 
   const getChildren = (parentId: string | null) =>
     collections
@@ -59,13 +48,6 @@ export function IntercomEditor() {
   const selectedCollectionId = selectedPath[selectedPath.length - 1] || '';
   const selectedCollection = collections.find((item) => item.id === selectedCollectionId) || null;
 
-  const loadCollections = async () => {
-    const res = await fetch('/api/admin/intercom/collections', { cache: 'no-store' });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data?.error || '读取 collection 失败');
-    return (data.collections || []) as CollectionItem[];
-  };
-
   const loadArticle = async () => {
     if (!articleId.trim()) {
       setStatus('请输入文章 ID');
@@ -75,25 +57,22 @@ export function IntercomEditor() {
     setLoading(true);
     setStatus('');
     try {
-      const loadedCollections = await loadCollections();
-      setCollections(loadedCollections);
+      const [collectionsRes, articleRes] = await Promise.all([
+        fetch('/api/admin/intercom/collections', { cache: 'no-store' }),
+        fetch(`/api/admin/intercom/articles/${encodeURIComponent(articleId)}?locale=zh-CN`, {
+          cache: 'no-store',
+        }),
+      ]);
 
-      const res = await fetch(`/api/admin/intercom/articles/${encodeURIComponent(articleId)}?locale=zh-CN`, {
-        cache: 'no-store',
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || '读取文章失败');
-      setArticle(data.article);
+      const collectionsData = await collectionsRes.json().catch(() => ({}));
+      const articleData = await articleRes.json().catch(() => ({}));
 
-      const collectionMap = new Map<string, CollectionItem>(loadedCollections.map((item) => [item.id, item]));
-      const chain: string[] = [];
-      let current: CollectionItem | undefined = collectionMap.get(data.article.collectionId || '');
-      for (let depth = 0; depth < 10 && current; depth += 1) {
-        chain.unshift(current.id);
-        current = current.parentId ? collectionMap.get(current.parentId) : undefined;
-      }
-      setSelectedPath(chain);
+      if (!collectionsRes.ok) throw new Error(collectionsData?.error || '读取 collection 失败');
+      if (!articleRes.ok) throw new Error(articleData?.error || '读取文章失败');
 
+      setCollections(collectionsData.collections || []);
+      setArticle(articleData.article);
+      setSelectedPath(articleData.article.collectionPathIds || []);
       setStatus('文章已读取，已自动回填当前 collection');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : '读取文章失败');
@@ -121,7 +100,8 @@ export function IntercomEditor() {
         body: JSON.stringify({
           draft: {
             title: article.title,
-            body: article.body,
+            body: editMode === 'markdown' ? article.body : undefined,
+            html: editMode === 'html' ? article.html : undefined,
             needsConfirmation: [],
           },
           collectionId: selectedCollectionId,
@@ -183,18 +163,36 @@ export function IntercomEditor() {
             </div>
           </div>
 
-          {selectedCollection ? (
+          {(selectedCollection || article.collectionPathLabel) ? (
             <div className="selected-collection">
-              <span className="badge">{selectedCollection.pathLabel}</span>
+              <span className="badge">{selectedCollection?.pathLabel || article.collectionPathLabel}</span>
             </div>
           ) : null}
 
-          <textarea
-            className="intercom-textarea"
-            value={article.body}
-            onChange={(e) => setArticle({ ...article, body: e.target.value })}
-            placeholder="文章正文"
-          />
+          <div className="row">
+            <button className={`btn btn-small ${editMode === 'markdown' ? '' : 'btn-ghost'}`} type="button" onClick={() => setEditMode('markdown')}>
+              Markdown 编辑
+            </button>
+            <button className={`btn btn-small ${editMode === 'html' ? '' : 'btn-ghost'}`} type="button" onClick={() => setEditMode('html')}>
+              HTML 保真编辑
+            </button>
+          </div>
+
+          {editMode === 'markdown' ? (
+            <textarea
+              className="intercom-textarea"
+              value={article.body}
+              onChange={(e) => setArticle({ ...article, body: e.target.value })}
+              placeholder="文章正文（Markdown）"
+            />
+          ) : (
+            <textarea
+              className="intercom-textarea"
+              value={article.html}
+              onChange={(e) => setArticle({ ...article, html: e.target.value })}
+              placeholder="文章正文（HTML）"
+            />
+          )}
 
           <div className="row">
             <button className="btn" type="button" onClick={saveArticle} disabled={loading}>

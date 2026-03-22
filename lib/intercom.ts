@@ -23,9 +23,12 @@ export type IntercomCollection = {
 export type IntercomEditableArticle = {
   id: string;
   collectionId: string;
+  collectionPathIds: string[];
+  collectionPathLabel: string;
   state: string;
   title: string;
   body: string;
+  html: string;
   needsConfirmation: string[];
 };
 
@@ -100,7 +103,6 @@ function stripListMarker(line: string) {
 
 function normalizeBodyMarkdown(text: string) {
   let normalized = String(text || '').replace(/\r\n/g, '\n');
-
   normalized = normalized.replace(/^(\d+)[)）]\s+/gm, '$1. ');
   normalized = normalized.replace(
     /打开([A-Za-z0-9\u4e00-\u9fff_-]*?(?:页面|教程|文档|链接))\s+(https?:\/\/[^\s)]+)/g,
@@ -155,9 +157,7 @@ function renderMarkdownBlocks(text: string) {
   const flushList = () => {
     if (!listType || listItems.length === 0) return;
     html.push(`<${listType}>`);
-    for (const item of listItems) {
-      html.push(`<li>${renderInlineMarkdown(item)}</li>`);
-    }
+    for (const item of listItems) html.push(`<li>${renderInlineMarkdown(item)}</li>`);
     html.push(`</${listType}>`);
     listType = null;
     listItems = [];
@@ -170,14 +170,12 @@ function renderMarkdownBlocks(text: string) {
       flushList();
       continue;
     }
-
     if (isHeadingLine(line)) {
       flushParagraph();
       flushList();
       html.push(`<h2>${renderInlineMarkdown(line.replace(/^##\s+/, ''))}</h2>`);
       continue;
     }
-
     if (isOrderedListItem(line)) {
       flushParagraph();
       if (listType && listType !== 'ol') flushList();
@@ -185,7 +183,6 @@ function renderMarkdownBlocks(text: string) {
       listItems.push(stripListMarker(line));
       continue;
     }
-
     if (isUnorderedListItem(line)) {
       flushParagraph();
       if (listType && listType !== 'ul') flushList();
@@ -193,7 +190,6 @@ function renderMarkdownBlocks(text: string) {
       listItems.push(stripListMarker(line));
       continue;
     }
-
     flushList();
     paragraph.push(line);
   }
@@ -250,32 +246,22 @@ function toIntercomHtml(html: string) {
 
 function renderArticleHtml(article: IntercomDraftArticle, locale: string) {
   if (article.html && String(article.html).trim()) return toIntercomHtml(String(article.html).trim());
-
   const lines = renderMarkdownBlocks(article.body || '');
   const notes: string[] = [];
   for (const item of article.needsConfirmation || []) notes.push(`Needs confirmation: ${item}`);
-
   if (notes.length > 0) {
     lines.push(`<h2>${escapeHtml(locale === 'zh-CN' ? 'Needs confirmation' : 'Needs confirmation')}</h2>`);
     lines.push('<ul>');
     for (const note of notes) lines.push(`<li>${escapeHtml(note)}</li>`);
     lines.push('</ul>');
   }
-
   return lines.join('\n');
 }
 
 function htmlToEditableMarkdown(html: string) {
   let text = String(html || '');
-
-  text = text.replace(/<a [^>]*href="([^"]+)"[^>]*>(.*?)<\/a>/gis, (_match, url, label) => {
-    return `[${stripTags(label).trim()}](${url})`;
-  });
-
-  text = text.replace(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/gis, (_match, content) => {
-    return `## ${stripTags(content).trim()}\n\n`;
-  });
-
+  text = text.replace(/<a [^>]*href="([^"]+)"[^>]*>(.*?)<\/a>/gis, (_match, url, label) => `[${stripTags(label).trim()}](${url})`);
+  text = text.replace(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/gis, (_match, content) => `## ${stripTags(content).trim()}\n\n`);
   text = text.replace(/<ol[^>]*>(.*?)<\/ol>/gis, (_match: string, content: string) => {
     let index = 0;
     return content.replace(/<li[^>]*>(.*?)<\/li>/gis, (_liMatch: string, liContent: string) => {
@@ -283,15 +269,10 @@ function htmlToEditableMarkdown(html: string) {
       return `${index}. ${stripTags(liContent).trim()}\n`;
     });
   });
-
   text = text.replace(/<ul[^>]*>(.*?)<\/ul>/gis, (_match: string, content: string) => {
     return content.replace(/<li[^>]*>(.*?)<\/li>/gis, (_liMatch: string, liContent: string) => `- ${stripTags(liContent).trim()}\n`);
   });
-
-  text = text.replace(/<blockquote[^>]*>(.*?)<\/blockquote>/gis, (_match, content) => {
-    return `提示：${stripTags(content).trim()}\n\n`;
-  });
-
+  text = text.replace(/<blockquote[^>]*>(.*?)<\/blockquote>/gis, (_match, content) => `提示：${stripTags(content).trim()}\n\n`);
   text = text.replace(/<\/p>\s*<p[^>]*>/gis, '\n\n');
   text = text.replace(/<br\s*\/?>/gis, '\n');
   text = stripTags(text);
@@ -302,27 +283,23 @@ function htmlToEditableMarkdown(html: string) {
 async function requestJson(path: string, options: RequestInit = {}) {
   const response = await fetch(`${getBaseUrl()}${path}`, {
     ...options,
-    headers: {
-      ...getHeaders(),
-      ...(options.headers || {}),
-    },
+    headers: { ...getHeaders(), ...(options.headers || {}) },
     cache: 'no-store',
   });
-
   const text = await response.text();
   const data = text ? JSON.parse(text) : {};
   if (!response.ok) throw new Error(`${options.method || 'GET'} ${path} failed: ${response.status} ${text}`);
   return data;
 }
 
+let collectionsCache: { expiresAt: number; data: IntercomCollection[] } | null = null;
+
 async function requestAllPages(path: string) {
   const results: Record<string, unknown>[] = [];
   let nextPath: string = path;
-
   for (let page = 0; page < 50 && nextPath; page += 1) {
     const payload = await requestJson(nextPath);
     results.push(...(((payload as { data?: Record<string, unknown>[] }).data) || []));
-
     const next = (payload as { pages?: { next?: string | { page?: string; starting_after?: string } } }).pages?.next;
     if (!next) break;
     if (typeof next === 'string') {
@@ -342,7 +319,6 @@ async function requestAllPages(path: string) {
     }
     break;
   }
-
   return results;
 }
 
@@ -359,13 +335,11 @@ async function getArticleById(articleId: string) {
 
 async function findArticleInList(articleId: string) {
   let path = '/articles';
-
   for (let page = 0; page < 20; page += 1) {
     const payload = await requestJson(path);
     const items = ((payload as { data?: Record<string, any>[] }).data) || [];
     const found = items.find((item) => String(item.id) === String(articleId));
     if (found) return found;
-
     const next = (payload as { pages?: { next?: string | { starting_after?: string } } }).pages?.next;
     if (!next) break;
     if (typeof next === 'string') {
@@ -379,7 +353,6 @@ async function findArticleInList(articleId: string) {
     }
     break;
   }
-
   return null;
 }
 
@@ -397,12 +370,7 @@ function buildContent(article: IntercomDraftArticle, authorId: string | number, 
   };
 }
 
-export function validateIntercomConfig() {
-  if (!process.env.INTERCOM_ACCESS_TOKEN) throw new Error('INTERCOM_ACCESS_TOKEN is not configured');
-}
-
-export async function getCollections(locale = 'zh-CN'): Promise<IntercomCollection[]> {
-  const items = (await requestAllPages('/help_center/collections')) as IntercomCollectionRaw[];
+function buildCollectionMaps(items: IntercomCollectionRaw[], locale: string) {
   const collectionMap = new Map(
     items.map((item) => [
       String(item.id),
@@ -425,7 +393,22 @@ export async function getCollections(locale = 'zh-CN'): Promise<IntercomCollecti
     return names;
   };
 
-  return items.map((item) => {
+  return { collectionMap, getPathNames };
+}
+
+export function validateIntercomConfig() {
+  if (!process.env.INTERCOM_ACCESS_TOKEN) throw new Error('INTERCOM_ACCESS_TOKEN is not configured');
+}
+
+export async function getCollections(locale = 'zh-CN', useCache = true): Promise<IntercomCollection[]> {
+  if (useCache && collectionsCache && collectionsCache.expiresAt > Date.now()) {
+    return collectionsCache.data;
+  }
+
+  const items = (await requestAllPages('/help_center/collections')) as IntercomCollectionRaw[];
+  const { collectionMap, getPathNames } = buildCollectionMaps(items, locale);
+
+  const collections = items.map((item) => {
     const normalized = collectionMap.get(String(item.id));
     const pathNames = getPathNames(normalized);
     return {
@@ -437,19 +420,41 @@ export async function getCollections(locale = 'zh-CN'): Promise<IntercomCollecti
       parentId: normalized?.parentId || null,
     };
   });
+
+  collectionsCache = { data: collections, expiresAt: Date.now() + 5 * 60 * 1000 };
+  return collections;
 }
 
 export async function getEditableArticle(articleId: string, locale = 'zh-CN'): Promise<IntercomEditableArticle> {
-  const article = await getArticleById(articleId);
-  const fallback = article.parent_id ? null : await findArticleInList(articleId);
-  const localized = getLocalizedArticleContent(article as Record<string, any>, locale);
+  const [article, collections] = await Promise.all([
+    getArticleById(articleId),
+    getCollections(locale, true),
+  ]);
+
+  const articleRecord = article as Record<string, any>;
+  const fallback = articleRecord.parent_id ? null : await findArticleInList(articleId);
+  const localized = getLocalizedArticleContent(articleRecord, locale);
+  const collectionId = String(articleRecord.parent_id || fallback?.parent_id || '');
+
+  const collectionMap = new Map(collections.map((item) => [item.id, item]));
+  const collectionPathIds: string[] = [];
+  let current = collectionMap.get(collectionId);
+  for (let depth = 0; depth < 10 && current; depth += 1) {
+    collectionPathIds.unshift(current.id);
+    current = current.parentId ? collectionMap.get(current.parentId) : undefined;
+  }
+
+  const rawHtml = String(localized.body || articleRecord.body || '');
 
   return {
-    id: String((article as Record<string, any>).id),
-    collectionId: String((article as Record<string, any>).parent_id || fallback?.parent_id || ''),
-    state: String(localized.state || (article as Record<string, any>).state || 'draft'),
-    title: String(localized.title || (article as Record<string, any>).title || ''),
-    body: htmlToEditableMarkdown(String(localized.body || (article as Record<string, any>).body || '')),
+    id: String(articleRecord.id),
+    collectionId,
+    collectionPathIds,
+    collectionPathLabel: collectionMap.get(collectionId)?.pathLabel || '',
+    state: String(localized.state || articleRecord.state || 'draft'),
+    title: String(localized.title || articleRecord.title || ''),
+    body: htmlToEditableMarkdown(rawHtml),
+    html: rawHtml,
     needsConfirmation: [],
   };
 }
@@ -461,11 +466,7 @@ export async function publishArticle({ article, collectionId, locale, state }: {
     parent_type: 'collection',
     parent_id: Number(collectionId),
   };
-
-  if (locale !== 'en') {
-    payload.translated_content = { [locale]: buildContent(article, authorId, state, locale) };
-  }
-
+  if (locale !== 'en') payload.translated_content = { [locale]: buildContent(article, authorId, state, locale) };
   return requestJson('/articles', { method: 'POST', body: JSON.stringify(payload) });
 }
 
