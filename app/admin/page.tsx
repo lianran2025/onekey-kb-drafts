@@ -23,6 +23,7 @@ export default async function AdminPage() {
           <div className="article-hero-copy">
             <h1 className="article-display-title">文章管理</h1>
           </div>
+          <a className="btn btn-ghost" href="/admin/intercom">Intercom 修改</a>
         </div>
       </header>
 

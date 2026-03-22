@@ -20,6 +20,15 @@ export type IntercomCollection = {
   parentId: string | null;
 };
 
+export type IntercomEditableArticle = {
+  id: string;
+  collectionId: string;
+  state: string;
+  title: string;
+  body: string;
+  needsConfirmation: string[];
+};
+
 type IntercomCollectionRaw = {
   id: string | number;
   name?: string;
@@ -49,6 +58,20 @@ function escapeHtml(value: string) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function decodeHtml(value: string) {
+  return value
+    .replaceAll('&nbsp;', ' ')
+    .replaceAll('&amp;', '&')
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&quot;', '"')
+    .replaceAll('&#39;', "'");
+}
+
+function stripTags(value: string) {
+  return decodeHtml(String(value || '').replace(/<[^>]+>/g, ''));
 }
 
 function renderInlineMarkdown(text: string) {
@@ -183,9 +206,7 @@ function renderMarkdownBlocks(text: string) {
 function applyInlineStyleToTag(html: string, tag: string, style: string) {
   const pattern = new RegExp(`<${tag}(\\s[^>]*)?>`, 'gi');
   return html.replace(pattern, (_match, attrs = '') => {
-    if (/style\s*=\s*/i.test(attrs)) {
-      return `<${tag}${attrs}>`;
-    }
+    if (/style\s*=\s*/i.test(attrs)) return `<${tag}${attrs}>`;
     return `<${tag}${attrs} style="${style}">`;
   });
 }
@@ -197,7 +218,6 @@ function unwrapTag(html: string, tag: string) {
 
 function normalizeIntercomStructure(html: string) {
   let output = String(html || '').trim();
-
   output = output.replace(/<blockquote>\s*<p>([\s\S]*?)<\/p>\s*<\/blockquote>/gi, '<blockquote>$1</blockquote>');
   output = output.replace(/<li>\s*<p>([\s\S]*?)<\/p>\s*<\/li>/gi, '<li>$1</li>');
   output = output.replace(/<p>\s*<\/p>/gi, '');
@@ -211,13 +231,11 @@ function normalizeIntercomStructure(html: string) {
   output = unwrapTag(output, 'div');
   output = output.replace(/\n+/g, '');
   output = output.replace(/>\s+</g, '><');
-
   return output.trim();
 }
 
 function toIntercomHtml(html: string) {
   let output = normalizeIntercomStructure(html);
-
   output = applyInlineStyleToTag(output, 'h1', 'font-size:32px;line-height:1.35;margin:0 0 14px;font-weight:700;color:#111827;');
   output = applyInlineStyleToTag(output, 'h2', 'font-size:24px;line-height:1.45;margin:16px 0 8px;font-weight:700;color:#111827;');
   output = applyInlineStyleToTag(output, 'h3', 'font-size:20px;line-height:1.5;margin:12px 0 6px;font-weight:700;color:#111827;');
@@ -227,32 +245,58 @@ function toIntercomHtml(html: string) {
   output = applyInlineStyleToTag(output, 'li', 'margin:2px 0;line-height:1.65;color:#111827;');
   output = applyInlineStyleToTag(output, 'a', 'color:#2563eb;text-decoration:underline;');
   output = applyInlineStyleToTag(output, 'strong', 'font-weight:700;color:#111827;');
-
   return output;
 }
 
 function renderArticleHtml(article: IntercomDraftArticle, locale: string) {
-  if (article.html && String(article.html).trim()) {
-    return toIntercomHtml(String(article.html).trim());
-  }
+  if (article.html && String(article.html).trim()) return toIntercomHtml(String(article.html).trim());
 
   const lines = renderMarkdownBlocks(article.body || '');
   const notes: string[] = [];
-
-  for (const item of article.needsConfirmation || []) {
-    notes.push(`Needs confirmation: ${item}`);
-  }
+  for (const item of article.needsConfirmation || []) notes.push(`Needs confirmation: ${item}`);
 
   if (notes.length > 0) {
     lines.push(`<h2>${escapeHtml(locale === 'zh-CN' ? 'Needs confirmation' : 'Needs confirmation')}</h2>`);
     lines.push('<ul>');
-    for (const note of notes) {
-      lines.push(`<li>${escapeHtml(note)}</li>`);
-    }
+    for (const note of notes) lines.push(`<li>${escapeHtml(note)}</li>`);
     lines.push('</ul>');
   }
 
   return lines.join('\n');
+}
+
+function htmlToEditableMarkdown(html: string) {
+  let text = String(html || '');
+
+  text = text.replace(/<a [^>]*href="([^"]+)"[^>]*>(.*?)<\/a>/gis, (_match, url, label) => {
+    return `[${stripTags(label).trim()}](${url})`;
+  });
+
+  text = text.replace(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/gis, (_match, content) => {
+    return `## ${stripTags(content).trim()}\n\n`;
+  });
+
+  text = text.replace(/<ol[^>]*>(.*?)<\/ol>/gis, (_match: string, content: string) => {
+    let index = 0;
+    return content.replace(/<li[^>]*>(.*?)<\/li>/gis, (_liMatch: string, liContent: string) => {
+      index += 1;
+      return `${index}. ${stripTags(liContent).trim()}\n`;
+    });
+  });
+
+  text = text.replace(/<ul[^>]*>(.*?)<\/ul>/gis, (_match: string, content: string) => {
+    return content.replace(/<li[^>]*>(.*?)<\/li>/gis, (_liMatch: string, liContent: string) => `- ${stripTags(liContent).trim()}\n`);
+  });
+
+  text = text.replace(/<blockquote[^>]*>(.*?)<\/blockquote>/gis, (_match, content) => {
+    return `提示：${stripTags(content).trim()}\n\n`;
+  });
+
+  text = text.replace(/<\/p>\s*<p[^>]*>/gis, '\n\n');
+  text = text.replace(/<br\s*\/?>/gis, '\n');
+  text = stripTags(text);
+  text = text.replace(/\n{3,}/g, '\n\n').trim();
+  return text;
 }
 
 async function requestJson(path: string, options: RequestInit = {}) {
@@ -267,11 +311,7 @@ async function requestJson(path: string, options: RequestInit = {}) {
 
   const text = await response.text();
   const data = text ? JSON.parse(text) : {};
-
-  if (!response.ok) {
-    throw new Error(`${options.method || 'GET'} ${path} failed: ${response.status} ${text}`);
-  }
-
+  if (!response.ok) throw new Error(`${options.method || 'GET'} ${path} failed: ${response.status} ${text}`);
   return data;
 }
 
@@ -285,25 +325,21 @@ async function requestAllPages(path: string) {
 
     const next = (payload as { pages?: { next?: string | { page?: string; starting_after?: string } } }).pages?.next;
     if (!next) break;
-
     if (typeof next === 'string') {
       const url = new URL(next);
       nextPath = `${url.pathname}${url.search}`;
       continue;
     }
-
     if (next.page) {
       const separator = nextPath.includes('?') ? '&' : '?';
       nextPath = `${path}${separator}page=${encodeURIComponent(next.page)}`;
       continue;
     }
-
     if (next.starting_after) {
       const separator = path.includes('?') ? '&' : '?';
       nextPath = `${path}${separator}starting_after=${encodeURIComponent(next.starting_after)}`;
       continue;
     }
-
     break;
   }
 
@@ -317,6 +353,40 @@ async function getAuthorId() {
   return id;
 }
 
+async function getArticleById(articleId: string) {
+  return requestJson(`/articles/${articleId}`);
+}
+
+async function findArticleInList(articleId: string) {
+  let path = '/articles';
+
+  for (let page = 0; page < 20; page += 1) {
+    const payload = await requestJson(path);
+    const items = ((payload as { data?: Record<string, any>[] }).data) || [];
+    const found = items.find((item) => String(item.id) === String(articleId));
+    if (found) return found;
+
+    const next = (payload as { pages?: { next?: string | { starting_after?: string } } }).pages?.next;
+    if (!next) break;
+    if (typeof next === 'string') {
+      const url = new URL(next);
+      path = `${url.pathname}${url.search}`;
+      continue;
+    }
+    if (next.starting_after) {
+      path = `/articles?starting_after=${encodeURIComponent(next.starting_after)}`;
+      continue;
+    }
+    break;
+  }
+
+  return null;
+}
+
+function getLocalizedArticleContent(article: Record<string, any>, locale: string) {
+  return article.translated_content?.[locale] || article;
+}
+
 function buildContent(article: IntercomDraftArticle, authorId: string | number, state: string, locale: string) {
   return {
     title: article.title,
@@ -328,9 +398,7 @@ function buildContent(article: IntercomDraftArticle, authorId: string | number, 
 }
 
 export function validateIntercomConfig() {
-  if (!process.env.INTERCOM_ACCESS_TOKEN) {
-    throw new Error('INTERCOM_ACCESS_TOKEN is not configured');
-  }
+  if (!process.env.INTERCOM_ACCESS_TOKEN) throw new Error('INTERCOM_ACCESS_TOKEN is not configured');
 }
 
 export async function getCollections(locale = 'zh-CN'): Promise<IntercomCollection[]> {
@@ -342,10 +410,7 @@ export async function getCollections(locale = 'zh-CN'): Promise<IntercomCollecti
         ...item,
         id: String(item.id),
         parentId: item.parent_id ? String(item.parent_id) : null,
-        localizedName:
-          item.translated_content?.[locale]?.name ||
-          item.translated_content?.en?.name ||
-          item.name || '',
+        localizedName: item.translated_content?.[locale]?.name || item.translated_content?.en?.name || item.name || '',
       },
     ])
   );
@@ -353,12 +418,10 @@ export async function getCollections(locale = 'zh-CN'): Promise<IntercomCollecti
   const getPathNames = (item: { localizedName: string; name?: string; parentId: string | null } | undefined) => {
     const names: string[] = [];
     let current = item;
-
     for (let depth = 0; depth < 10 && current; depth += 1) {
       names.unshift(current.localizedName || current.name || '');
       current = current.parentId ? collectionMap.get(current.parentId) : undefined;
     }
-
     return names;
   };
 
@@ -376,17 +439,22 @@ export async function getCollections(locale = 'zh-CN'): Promise<IntercomCollecti
   });
 }
 
-export async function publishArticle({
-  article,
-  collectionId,
-  locale,
-  state,
-}: {
-  article: IntercomDraftArticle;
-  collectionId: string;
-  locale: string;
-  state: string;
-}) {
+export async function getEditableArticle(articleId: string, locale = 'zh-CN'): Promise<IntercomEditableArticle> {
+  const article = await getArticleById(articleId);
+  const fallback = article.parent_id ? null : await findArticleInList(articleId);
+  const localized = getLocalizedArticleContent(article as Record<string, any>, locale);
+
+  return {
+    id: String((article as Record<string, any>).id),
+    collectionId: String((article as Record<string, any>).parent_id || fallback?.parent_id || ''),
+    state: String(localized.state || (article as Record<string, any>).state || 'draft'),
+    title: String(localized.title || (article as Record<string, any>).title || ''),
+    body: htmlToEditableMarkdown(String(localized.body || (article as Record<string, any>).body || '')),
+    needsConfirmation: [],
+  };
+}
+
+export async function publishArticle({ article, collectionId, locale, state }: { article: IntercomDraftArticle; collectionId: string; locale: string; state: string; }) {
   const authorId = await getAuthorId();
   const payload: Record<string, unknown> = {
     ...buildContent(article, authorId, state, 'en'),
@@ -395,15 +463,31 @@ export async function publishArticle({
   };
 
   if (locale !== 'en') {
-    payload.translated_content = {
-      [locale]: buildContent(article, authorId, state, locale),
-    };
+    payload.translated_content = { [locale]: buildContent(article, authorId, state, locale) };
   }
 
-  return requestJson('/articles', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+  return requestJson('/articles', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export async function updateArticle({ articleId, article, locale, state, collectionId }: { articleId: string; article: IntercomDraftArticle; locale: string; state: string; collectionId?: string; }) {
+  const existing = await getArticleById(articleId);
+  const authorId = await getAuthorId();
+  const payload: Record<string, unknown> = {};
+  const fallback = (existing as Record<string, any>).parent_id ? null : await findArticleInList(articleId);
+  const resolvedCollectionId = (existing as Record<string, any>).parent_id || fallback?.parent_id || collectionId;
+
+  if (resolvedCollectionId) {
+    payload.parent_type = (existing as Record<string, any>).parent_type || 'collection';
+    payload.parent_id = Number(resolvedCollectionId);
+  }
+
+  if (locale === 'en') {
+    Object.assign(payload, buildContent(article, authorId, state, 'en'));
+  } else {
+    payload.translated_content = { [locale]: buildContent(article, authorId, state, locale) };
+  }
+
+  return requestJson(`/articles/${articleId}`, { method: 'PUT', body: JSON.stringify(payload) });
 }
 
 export function buildOpenUrl(article: Record<string, any>, { locale }: { locale: string }) {
