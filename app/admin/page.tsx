@@ -1,5 +1,4 @@
 import { getAllSlugs, getArticle } from '@/lib/kb';
-import { BulkDeletePanel } from './BulkDeletePanel';
 import { clearSession, requireSessionEmail } from '@/lib/simple-auth';
 
 export const dynamic = 'force-dynamic';
@@ -19,20 +18,12 @@ export default async function AdminPage() {
 
   return (
     <div className="article-page-shell">
-      <header className="article-topbar">
-        <div className="article-breadcrumbs">
-          <a href="/admin">Articles</a>
-          <span>›</span>
-          <span className="active">Backend</span>
-        </div>
-
-        <div className="article-hero-header">
+      <header className="article-topbar compact-topbar">
+        <div className="article-hero-header compact-hero-header">
           <div className="article-hero-copy">
             <span className="homepage-eyebrow">Admin Console</span>
-            <h1 className="article-display-title">知识库后台管理</h1>
-            <p className="homepage-subtitle">
-              Manage draft articles, remove content in batches, and open single article pages for Intercom publishing.
-            </p>
+            <h1 className="article-display-title">文章管理</h1>
+            <p className="homepage-subtitle">登录后直接管理文章、打开单篇页面并发布到 Intercom。</p>
           </div>
           <form
             action={async () => {
@@ -45,68 +36,31 @@ export default async function AdminPage() {
         </div>
       </header>
 
-      <div className="article-layout-grid">
-        <aside className="article-side-panel glass-card">
-          <section className="article-side-section">
-            <h3 className="article-side-title">Workspace Stats</h3>
-            <div className="meta-block">
-              <p className="meta-label">Articles</p>
-              <p className="meta-value">{items.length}</p>
-            </div>
-            <div className="row">
-              <span className="badge">GitHub Synced</span>
-              <span className="badge">Admin Only</span>
-            </div>
-          </section>
-
-          <section className="article-side-section meta-card-dark">
-            <div className="meta-block">
-              <p className="meta-label">Quick Access</p>
-              <p className="meta-value">批量删除、进入单篇后台、发布到 Intercom</p>
-            </div>
-          </section>
-        </aside>
-
-        <main className="article-preview-wrap">
-          <div className="surface-card">
-            <div className="section-head">
-              <div>
-                <h2 className="section-title">批量管理</h2>
-                <p className="muted">勾选文章后可直接批量删除，也可进入单篇后台继续发布操作。</p>
-              </div>
-              <span className="badge">共 {items.length} 篇</span>
-            </div>
-
-            {items.length === 0 ? (
-              <p className="muted">暂无文章。</p>
-            ) : (
-              <BulkDeletePanel items={items.map(({ slug, title }) => ({ slug, title }))} />
-            )}
+      <section className="surface-card compact-surface">
+        <div className="section-head compact-section-head">
+          <div>
+            <h2 className="section-title">文章列表</h2>
+            <p className="muted">点击任意文章即可进入详情页继续操作。</p>
           </div>
+          <span className="badge">共 {items.length} 篇</span>
+        </div>
 
-          {items.length > 0 ? (
-            <div className="surface-card admin-summary-card">
-              <div className="section-head">
-                <div>
-                  <h2 className="section-title">摘要预览</h2>
-                  <p className="muted">快速浏览文章标题和摘要。</p>
+        {items.length === 0 ? (
+          <p className="muted">暂无文章。</p>
+        ) : (
+          <div className="simple-article-list">
+            {items.map((it) => (
+              <a key={it.slug} href={`/admin/kb/${it.slug}`} className="simple-article-item">
+                <div className="simple-article-main">
+                  <div className="admin-list-title">{it.title}</div>
+                  {it.description ? <p className="muted">{it.description}</p> : null}
                 </div>
-              </div>
-              <div className="list-simple">
-                {items.map((it) => (
-                  <article key={it.slug} className="list-simple-item admin-summary-item">
-                    <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                      <a href={`/admin/kb/${it.slug}`} className="admin-list-title">{it.title}</a>
-                      <span className="badge">{it.slug}</span>
-                    </div>
-                    {it.description ? <p className="muted">{it.description}</p> : null}
-                  </article>
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </main>
-      </div>
+                <span className="badge">{it.slug}</span>
+              </a>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

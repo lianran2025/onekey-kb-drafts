@@ -18,71 +18,41 @@ export default async function AdminArticlePage({
 
   return (
     <div className="article-page-shell">
-      <header className="article-topbar">
-        <div className="article-breadcrumbs">
-          <a href="/admin">Articles</a>
-          <span>›</span>
-          <a href="/admin">Backend</a>
-          <span>›</span>
-          <span className="active">Article Management</span>
-        </div>
-
-        <div className="article-hero-header">
-          <div className="article-hero-copy">
-            <span className="homepage-eyebrow">Digital Archive ID</span>
-            <h1 className="article-display-title">{article.frontmatter.title}</h1>
-          </div>
-          <div className="row">
-            <a className="btn btn-ghost" href="/admin">
-              返回后台
-            </a>
-          </div>
+      <header className="article-topbar compact-topbar">
+        <div className="article-hero-copy article-hero-copy-centered">
+          <span className="homepage-eyebrow">Article Management</span>
+          <h1 className="article-display-title">{article.frontmatter.title}</h1>
         </div>
       </header>
 
-      <div className="article-layout-grid article-layout-grid-admin">
-        <aside className="article-side-panel glass-card admin-side-panel">
-          <section className="article-side-section">
-            <h3 className="article-side-title">Asset Controls</h3>
-            <div className="article-side-actions admin-action-stack">
+      <main className="article-preview-wrap article-preview-centered">
+        <div className="article-paper admin-article-paper article-paper-narrow">
+          <div className="article-paper-head">
+            <h1 className="article-paper-title">{article.frontmatter.title}</h1>
+          </div>
+
+          <section id="article" className="article article-prose">
+            <div dangerouslySetInnerHTML={{ __html: article.html }} />
+          </section>
+        </div>
+
+        <section className="surface-card article-tools-below">
+          <div className="section-head compact-section-head">
+            <div>
+              <h2 className="section-title">操作</h2>
+              <p className="muted">复制正文、选择 collection 并发布到 Intercom。</p>
+            </div>
+          </div>
+
+          <div className="article-tools-stack">
+            <div className="admin-actions compact-admin-actions">
               <CopyButtons articleSelector="#article" />
               <DeleteButton slug={slug} />
             </div>
-          </section>
-
-          <section className="article-side-section intercom-sync-card">
-            <h3 className="article-side-title article-side-title-bright">Intercom Sync</h3>
             <PublishPanel slug={slug} />
-          </section>
-
-          <section className="article-side-section meta-card-dark">
-            <div className="meta-block">
-              <p className="meta-label">Current Draft</p>
-              <p className="meta-value">{slug}</p>
-            </div>
-            <div className="row">
-              <span className="badge">Admin</span>
-              <span className="badge">Preview Ready</span>
-            </div>
-          </section>
-        </aside>
-
-        <main className="article-preview-wrap">
-          <div className="article-paper admin-article-paper">
-            <div className="article-paper-head">
-              <h1 className="article-paper-title">{article.frontmatter.title}</h1>
-              <div className="article-paper-meta">
-                <span>Admin Preview</span>
-                <span>Draft Source</span>
-              </div>
-            </div>
-
-            <section id="article" className="article article-prose">
-              <div dangerouslySetInnerHTML={{ __html: article.html }} />
-            </section>
           </div>
-        </main>
-      </div>
+        </section>
+      </main>
     </div>
   );
 }
