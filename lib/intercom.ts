@@ -23,8 +23,6 @@ export type IntercomCollection = {
 export type IntercomEditableArticle = {
   id: string;
   collectionId: string;
-  collectionPathIds: string[];
-  collectionPathLabel: string;
   state: string;
   title: string;
   body: string;
@@ -426,31 +424,16 @@ export async function getCollections(locale = 'zh-CN', useCache = true): Promise
 }
 
 export async function getEditableArticle(articleId: string, locale = 'zh-CN'): Promise<IntercomEditableArticle> {
-  const [article, collections] = await Promise.all([
-    getArticleById(articleId),
-    getCollections(locale, true),
-  ]);
-
+  const article = await getArticleById(articleId);
   const articleRecord = article as Record<string, any>;
   const fallback = articleRecord.parent_id ? null : await findArticleInList(articleId);
   const localized = getLocalizedArticleContent(articleRecord, locale);
   const collectionId = String(articleRecord.parent_id || fallback?.parent_id || '');
-
-  const collectionMap = new Map(collections.map((item) => [item.id, item]));
-  const collectionPathIds: string[] = [];
-  let current = collectionMap.get(collectionId);
-  for (let depth = 0; depth < 10 && current; depth += 1) {
-    collectionPathIds.unshift(current.id);
-    current = current.parentId ? collectionMap.get(current.parentId) : undefined;
-  }
-
   const rawHtml = String(localized.body || articleRecord.body || '');
 
   return {
     id: String(articleRecord.id),
     collectionId,
-    collectionPathIds,
-    collectionPathLabel: collectionMap.get(collectionId)?.pathLabel || '',
     state: String(localized.state || articleRecord.state || 'draft'),
     title: String(localized.title || articleRecord.title || ''),
     body: htmlToEditableMarkdown(rawHtml),

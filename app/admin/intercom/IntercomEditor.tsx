@@ -11,8 +11,6 @@ type LoadedArticle = {
   html: string;
   state: string;
   collectionId: string;
-  collectionPathIds: string[];
-  collectionPathLabel: string;
 };
 
 export function IntercomEditor() {
@@ -70,10 +68,22 @@ export function IntercomEditor() {
       if (!collectionsRes.ok) throw new Error(collectionsData?.error || '读取 collection 失败');
       if (!articleRes.ok) throw new Error(articleData?.error || '读取文章失败');
 
-      setCollections(collectionsData.collections || []);
-      setArticle(articleData.article);
-      setSelectedPath(articleData.article.collectionPathIds || []);
-      setStatus('文章已读取，已自动回填当前 collection');
+      const loadedCollections = (collectionsData.collections || []) as CollectionItem[];
+      const loadedArticle = articleData.article as LoadedArticle;
+
+      setCollections(loadedCollections);
+      setArticle(loadedArticle);
+
+      const collectionMap = new Map<string, CollectionItem>(loadedCollections.map((item) => [item.id, item]));
+      const chain: string[] = [];
+      let current: CollectionItem | undefined = collectionMap.get(loadedArticle.collectionId || '');
+      for (let depth = 0; depth < 10 && current; depth += 1) {
+        chain.unshift(current.id);
+        current = current.parentId ? collectionMap.get(current.parentId) : undefined;
+      }
+      setSelectedPath(chain);
+
+      setStatus(chain.length > 0 ? '文章已读取，已自动回填当前 collection' : '文章已读取，但未匹配到 collection 层级');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : '读取文章失败');
     } finally {
@@ -163,9 +173,9 @@ export function IntercomEditor() {
             </div>
           </div>
 
-          {(selectedCollection || article.collectionPathLabel) ? (
+          {selectedCollection ? (
             <div className="selected-collection">
-              <span className="badge">{selectedCollection?.pathLabel || article.collectionPathLabel}</span>
+              <span className="badge">{selectedCollection.pathLabel}</span>
             </div>
           ) : null}
 
