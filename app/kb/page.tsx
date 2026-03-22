@@ -1,8 +1,11 @@
 import { getAllSlugs, getArticle } from '@/lib/kb';
+import { requireSessionEmail } from '@/lib/simple-auth';
 
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 
-export default function KbIndexPage() {
+export default async function KbIndexPage() {
+  await requireSessionEmail();
+
   const slugs = getAllSlugs();
 
   const items = slugs.map((slug) => {

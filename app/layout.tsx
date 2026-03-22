@@ -19,7 +19,7 @@ export default async function RootLayout({
       <body>
         <div className="container">
           <header className="header glass-card">
-            <a className="brand" href="/">OneKey KB Draft Pages</a>
+            <a className="brand" href="/admin">OneKey KB Draft Pages</a>
             <AuthNav />
           </header>
           <main className="main">{children}</main>

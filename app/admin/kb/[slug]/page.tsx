@@ -2,7 +2,7 @@ import { getArticle } from '@/lib/kb';
 import { CopyButtons } from '@/app/kb/[slug]/CopyButtons';
 import { DeleteButton } from './DeleteButton';
 import { PublishPanel } from './PublishPanel';
-import { requireAdminSession } from '@/lib/auth-guard';
+import { requireSessionEmail } from '@/lib/simple-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +11,7 @@ export default async function AdminArticlePage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  await requireAdminSession();
+  await requireSessionEmail();
 
   const { slug } = await params;
   const article = getArticle(slug);
@@ -20,7 +20,7 @@ export default async function AdminArticlePage({
     <div className="article-page-shell">
       <header className="article-topbar">
         <div className="article-breadcrumbs">
-          <a href="/">Articles</a>
+          <a href="/admin">Articles</a>
           <span>›</span>
           <a href="/admin">Backend</a>
           <span>›</span>

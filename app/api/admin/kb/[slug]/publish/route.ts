@@ -1,13 +1,13 @@
 import { getArticle } from '@/lib/kb';
 import { buildOpenUrl, publishArticle, validateIntercomConfig } from '@/lib/intercom';
 import { NextResponse } from 'next/server';
-import { requireAdminApiSession, unauthorizedJson } from '@/lib/auth-guard';
+import { requireApiSessionEmail, unauthorizedJson } from '@/lib/simple-auth';
 
 export async function POST(
   request: Request,
   context: { params: Promise<{ slug: string }> }
 ) {
-  const session = await requireAdminApiSession();
+  const session = await requireApiSessionEmail();
   if (!session) return unauthorizedJson();
 
   try {

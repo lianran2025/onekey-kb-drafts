@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
 import fs from 'node:fs';
 import path from 'node:path';
-import { requireAdminApiSession, unauthorizedJson } from '@/lib/auth-guard';
+import { requireApiSessionEmail, unauthorizedJson } from '@/lib/simple-auth';
 
 const GITHUB_OWNER = process.env.GITHUB_OWNER || 'lianran2025';
 const GITHUB_REPO = process.env.GITHUB_REPO || 'onekey-kb-drafts';
@@ -55,7 +55,7 @@ export async function DELETE(
   _request: Request,
   context: { params: Promise<{ slug: string }> }
 ) {
-  const session = await requireAdminApiSession();
+  const session = await requireApiSessionEmail();
   if (!session) return unauthorizedJson();
 
   try {

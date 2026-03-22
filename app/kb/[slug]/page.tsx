@@ -1,7 +1,8 @@
 import { getAllSlugs, getArticle } from '@/lib/kb';
 import { CopyButtons } from './CopyButtons';
+import { requireSessionEmail } from '@/lib/simple-auth';
 
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 
 export function generateStaticParams() {
   return getAllSlugs().map((slug) => ({ slug }));
@@ -12,6 +13,8 @@ export default async function KbArticlePage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  await requireSessionEmail();
+
   const { slug } = await params;
   const article = getArticle(slug);
 
@@ -34,11 +37,8 @@ export default async function KbArticlePage({
             <h1 className="article-display-title">{title}</h1>
           </div>
           <div className="row">
-            <a className="btn btn-ghost" href="/">
-              返回列表
-            </a>
-            <a className="btn" href={`/admin/kb/${slug}`}>
-              后台管理
+            <a className="btn btn-ghost" href="/admin">
+              返回后台
             </a>
           </div>
         </div>

@@ -1,12 +1,11 @@
-import { signOut } from '@/auth';
 import { getAllSlugs, getArticle } from '@/lib/kb';
 import { BulkDeletePanel } from './BulkDeletePanel';
-import { requireAdminSession } from '@/lib/auth-guard';
+import { clearSession, requireSessionEmail } from '@/lib/simple-auth';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminPage() {
-  await requireAdminSession();
+  await requireSessionEmail();
 
   const slugs = getAllSlugs();
   const items = slugs.map((slug) => {
@@ -22,7 +21,7 @@ export default async function AdminPage() {
     <div className="article-page-shell">
       <header className="article-topbar">
         <div className="article-breadcrumbs">
-          <a href="/">Articles</a>
+          <a href="/admin">Articles</a>
           <span>›</span>
           <span className="active">Backend</span>
         </div>
@@ -38,7 +37,7 @@ export default async function AdminPage() {
           <form
             action={async () => {
               'use server';
-              await signOut({ redirectTo: '/login' });
+              await clearSession();
             }}
           >
             <button className="btn" type="submit">退出登录</button>
