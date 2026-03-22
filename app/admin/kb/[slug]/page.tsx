@@ -18,16 +18,9 @@ export default async function AdminArticlePage({
 
   return (
     <div className="article-page-shell">
-      <header className="article-topbar compact-topbar">
-        <div className="article-hero-copy article-hero-copy-centered">
-          <span className="homepage-eyebrow">Article Management</span>
-          <h1 className="article-display-title">{article.frontmatter.title}</h1>
-        </div>
-      </header>
-
       <main className="article-preview-wrap article-preview-centered">
         <div className="article-paper admin-article-paper article-paper-narrow">
-          <div className="article-paper-head">
+          <div className="article-paper-head article-paper-head-minimal">
             <h1 className="article-paper-title">{article.frontmatter.title}</h1>
           </div>
 
@@ -36,16 +29,9 @@ export default async function AdminArticlePage({
           </section>
         </div>
 
-        <section className="surface-card article-tools-below">
-          <div className="section-head compact-section-head">
-            <div>
-              <h2 className="section-title">操作</h2>
-              <p className="muted">复制正文、选择 collection 并发布到 Intercom。</p>
-            </div>
-          </div>
-
-          <div className="article-tools-stack">
-            <div className="admin-actions compact-admin-actions">
+        <section className="surface-card article-tools-below article-tools-below-compact">
+          <div className="article-tools-stack article-tools-stack-compact">
+            <div className="tool-button-row">
               <CopyButtons articleSelector="#article" />
               <DeleteButton slug={slug} />
             </div>

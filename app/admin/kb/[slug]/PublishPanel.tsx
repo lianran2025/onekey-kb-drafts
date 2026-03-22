@@ -102,9 +102,8 @@ export function PublishPanel({ slug }: { slug: string }) {
   };
 
   return (
-    <div className="publish-panel publish-panel-rich">
+    <div className="publish-panel publish-panel-rich publish-panel-compact">
       <label className="publish-label">
-        <span>Intercom Collection</span>
         <div className="cascade-grid">
           {levels.length === 0 && !loadingCollections ? <div className="muted">未读取到 collection</div> : null}
           {levels.map((level, index) => (
@@ -128,14 +127,13 @@ export function PublishPanel({ slug }: { slug: string }) {
 
       {collectionId ? (
         <div className="selected-collection">
-          当前选择：
           <span className="badge">
             {collections.find((item) => item.id === collectionId)?.pathLabel || collectionId}
           </span>
         </div>
       ) : null}
 
-      <div className="row">
+      <div className="row publish-action-row">
         <button className="btn" onClick={onPublish} disabled={loadingCollections || publishing || !collectionId}>
           {publishing ? '发布中...' : '发布到 Intercom'}
         </button>
