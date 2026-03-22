@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 type CollectionItem = { id: string; name: string; pathLabel: string; parentId?: string | null };
 
@@ -16,15 +16,54 @@ export function IntercomEditor() {
   const [articleId, setArticleId] = useState('');
   const [article, setArticle] = useState<LoadedArticle | null>(null);
   const [collections, setCollections] = useState<CollectionItem[]>([]);
-  const [selectedCollectionId, setSelectedCollectionId] = useState('');
+  const [selectedPath, setSelectedPath] = useState<string[]>([]);
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const getCollectionById = (id: string) => collections.find((item) => item.id === id) || null;
+
+  const buildCollectionChain = (collectionId: string) => {
+    if (!collectionId) return [];
+    const chain: string[] = [];
+    let current = getCollectionById(collectionId);
+
+    for (let depth = 0; depth < 10 && current; depth += 1) {
+      chain.unshift(current.id);
+      current = current.parentId ? getCollectionById(current.parentId) : null;
+    }
+
+    return chain;
+  };
+
+  const getChildren = (parentId: string | null) =>
+    collections
+      .filter((item) => (item.parentId || null) === parentId)
+      .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'));
+
+  const levels = useMemo(() => {
+    const result: Array<{ parentId: string | null; options: CollectionItem[]; selected: string }> = [];
+    let parentId: string | null = null;
+
+    for (let index = 0; index < 8; index += 1) {
+      const options = getChildren(parentId);
+      if (options.length === 0) break;
+      const selected = selectedPath[index] || '';
+      result.push({ parentId, options, selected });
+      if (!selected) break;
+      parentId = selected;
+    }
+
+    return result;
+  }, [collections, selectedPath]);
+
+  const selectedCollectionId = selectedPath[selectedPath.length - 1] || '';
+  const selectedCollection = collections.find((item) => item.id === selectedCollectionId) || null;
 
   const loadCollections = async () => {
     const res = await fetch('/api/admin/intercom/collections', { cache: 'no-store' });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || '读取 collection 失败');
-    setCollections(data.collections || []);
+    return (data.collections || []) as CollectionItem[];
   };
 
   const loadArticle = async () => {
@@ -36,20 +75,39 @@ export function IntercomEditor() {
     setLoading(true);
     setStatus('');
     try {
-      await loadCollections();
+      const loadedCollections = await loadCollections();
+      setCollections(loadedCollections);
+
       const res = await fetch(`/api/admin/intercom/articles/${encodeURIComponent(articleId)}?locale=zh-CN`, {
         cache: 'no-store',
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || '读取文章失败');
       setArticle(data.article);
-      setSelectedCollectionId(data.article.collectionId || '');
-      setStatus('文章已读取');
+
+      const collectionMap = new Map<string, CollectionItem>(loadedCollections.map((item) => [item.id, item]));
+      const chain: string[] = [];
+      let current: CollectionItem | undefined = collectionMap.get(data.article.collectionId || '');
+      for (let depth = 0; depth < 10 && current; depth += 1) {
+        chain.unshift(current.id);
+        current = current.parentId ? collectionMap.get(current.parentId) : undefined;
+      }
+      setSelectedPath(chain);
+
+      setStatus('文章已读取，已自动回填当前 collection');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : '读取文章失败');
     } finally {
       setLoading(false);
     }
+  };
+
+  const updateLevel = (index: number, value: string) => {
+    setSelectedPath((current) => {
+      const next = current.slice(0, index);
+      if (value) next.push(value);
+      return next;
+    });
   };
 
   const saveArticle = async () => {
@@ -104,18 +162,32 @@ export function IntercomEditor() {
             placeholder="文章标题"
           />
 
-          <select
-            className="publish-select"
-            value={selectedCollectionId}
-            onChange={(e) => setSelectedCollectionId(e.target.value)}
-          >
-            <option value="">请选择 collection</option>
-            {collections.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.pathLabel || item.name}
-              </option>
-            ))}
-          </select>
+          <div className="publish-label">
+            <span>当前 Collection</span>
+            <div className="cascade-grid">
+              {levels.map((level, index) => (
+                <select
+                  key={`${level.parentId ?? 'root'}-${index}`}
+                  className="publish-select"
+                  value={level.selected}
+                  onChange={(event) => updateLevel(index, event.target.value)}
+                >
+                  <option value="">请选择第 {index + 1} 级目录</option>
+                  {level.options.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              ))}
+            </div>
+          </div>
+
+          {selectedCollection ? (
+            <div className="selected-collection">
+              <span className="badge">{selectedCollection.pathLabel}</span>
+            </div>
+          ) : null}
 
           <textarea
             className="intercom-textarea"
