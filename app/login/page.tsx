@@ -1,16 +1,11 @@
-import { auth, signIn } from '@/auth';
-import { redirect } from 'next/navigation';
-
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ verified?: string }>;
+  searchParams: Promise<{ verified?: string; error?: string }>;
 }) {
-  const session = await auth();
-  if (session) redirect('/admin');
-
   const params = await searchParams;
   const verified = params.verified === '1';
+  const error = params.error;
 
   return (
     <div className="login-shell">
@@ -21,17 +16,8 @@ export default async function LoginPage({
           只有白名单邮箱可以访问该系统。输入你的邮箱后，系统会发送一封登录邮件，验证通过后将直接进入后台文章页面。
         </p>
 
-        <form
-          className="login-form"
-          action={async (formData) => {
-            'use server';
-            const email = String(formData.get('email') || '').trim();
-            await signIn('resend', {
-              email,
-              redirectTo: '/admin',
-            });
-          }}
-        >
+        <form className="login-form" method="post" action="/api/auth/signin/resend">
+          <input type="hidden" name="callbackUrl" value="/admin" />
           <label className="publish-label">
             <span>邮箱地址</span>
             <input className="publish-select" type="email" name="email" placeholder="you@example.com" required />
@@ -40,6 +26,7 @@ export default async function LoginPage({
         </form>
 
         {verified ? <p className="muted">验证成功，正在跳转后台…</p> : null}
+        {error ? <p className="muted">登录失败：{error}</p> : null}
       </div>
     </div>
   );
