@@ -1,8 +1,8 @@
 import NextAuth from 'next-auth';
-import GitHub from 'next-auth/providers/github';
+import Resend from 'next-auth/providers/resend';
 
-function getAllowedUsers() {
-  return (process.env.ADMIN_GITHUB_USERS || '')
+function getAllowedEmails() {
+  return (process.env.ADMIN_EMAILS || '')
     .split(',')
     .map((item) => item.trim().toLowerCase())
     .filter(Boolean);
@@ -15,40 +15,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     maxAge: 30 * 24 * 60 * 60,
     updateAge: 24 * 60 * 60,
   },
-  providers: [GitHub],
+  providers: [
+    Resend({
+      from: process.env.EMAIL_FROM || 'OneKey KB <no-reply@example.com>',
+    }),
+  ],
   pages: {
     signIn: '/login',
+    verifyRequest: '/login',
   },
   callbacks: {
-    async signIn({ profile }) {
-      const allowedUsers = getAllowedUsers();
-      if (allowedUsers.length === 0) return false;
-
-      const login = String((profile as { login?: string } | undefined)?.login || '').toLowerCase();
-      return allowedUsers.includes(login);
+    async signIn({ user }) {
+      const allowedEmails = getAllowedEmails();
+      if (allowedEmails.length === 0) return false;
+      const email = String(user.email || '').toLowerCase();
+      return allowedEmails.includes(email);
     },
     async session({ session, token }) {
       if (session.user) {
-        if (typeof token.name === 'string') {
-          session.user.name = token.name;
-        }
-        if (typeof token.email === 'string') {
-          session.user.email = token.email;
-        }
-        (session.user as { login?: string }).login =
-          typeof token.login === 'string' ? token.login : undefined;
+        if (typeof token.name === 'string') session.user.name = token.name;
+        if (typeof token.email === 'string') session.user.email = token.email;
       }
       return session;
     },
-    async jwt({ token, profile }) {
-      if (profile) {
-        token.login = (profile as { login?: string }).login;
-      }
-      return token;
-    },
     authorized({ auth, request: { nextUrl } }) {
-      const isAdminPath = nextUrl.pathname.startsWith('/admin') || nextUrl.pathname.startsWith('/api/admin');
-      if (!isAdminPath) return true;
+      const isAuthRoute = nextUrl.pathname.startsWith('/api/auth');
+      const isLoginPage = nextUrl.pathname === '/login';
+      if (isAuthRoute) return true;
+      if (isLoginPage) return true;
       return !!auth;
     },
   },

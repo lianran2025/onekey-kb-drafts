@@ -24,7 +24,7 @@ export default async function RootLayout({
           </header>
           <main className="main">{children}</main>
           <footer className="footer glass-card">
-            <span>Public pages are open. Admin actions require GitHub login and allowlist.</span>
+            <span>Private workspace. Access requires allowlisted email verification.</span>
           </footer>
         </div>
       </body>
