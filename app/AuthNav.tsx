@@ -7,8 +7,7 @@ export function AuthNav() {
   };
 
   return (
-    <nav className="nav row">
-      <a href="/admin">后台</a>
+    <nav className="nav row nav-minimal">
       <button className="btn btn-small" type="button" onClick={logout}>
         退出
       </button>

@@ -18,14 +18,11 @@ export default async function RootLayout({
     <html lang="zh-CN">
       <body>
         <div className="container">
-          <header className="header glass-card">
-            <a className="brand" href="/admin">OneKey KB Draft Pages</a>
+          <header className="header glass-card header-compact">
+            <a className="brand" href="/admin">OneKey KB</a>
             <AuthNav />
           </header>
           <main className="main">{children}</main>
-          <footer className="footer glass-card">
-            <span>Private workspace. Access requires allowlisted email verification.</span>
-          </footer>
         </div>
       </body>
     </html>
