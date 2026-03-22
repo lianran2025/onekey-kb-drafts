@@ -7,6 +7,8 @@ export const metadata: Metadata = {
   description: 'Draft knowledge base pages (copy/paste into Intercom).',
 };
 
+export const dynamic = 'force-dynamic';
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -18,7 +20,7 @@ export default async function RootLayout({
     <html lang="zh-CN">
       <body>
         <div className="container">
-          <header className="header">
+          <header className="header glass-card">
             <a className="brand" href="/">OneKey KB Draft Pages</a>
             <nav className="nav row">
               <a href="/">文章列表</a>
@@ -49,7 +51,7 @@ export default async function RootLayout({
             </nav>
           </header>
           <main className="main">{children}</main>
-          <footer className="footer">
+          <footer className="footer glass-card">
             <span>Public pages are open. Admin actions require GitHub login and allowlist.</span>
           </footer>
         </div>

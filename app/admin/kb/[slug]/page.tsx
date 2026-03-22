@@ -5,6 +5,8 @@ import { CopyButtons } from '@/app/kb/[slug]/CopyButtons';
 import { DeleteButton } from './DeleteButton';
 import { PublishPanel } from './PublishPanel';
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminArticlePage({
   params,
 }: {
@@ -17,25 +19,48 @@ export default async function AdminArticlePage({
   const article = getArticle(slug);
 
   return (
-    <div className="card">
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 className="h1">{article.frontmatter.title}</h1>
-        <a className="muted" href={`/kb/${slug}`} target="_blank" rel="noreferrer">
-          查看公开页
-        </a>
-      </div>
+    <div className="page-stack">
+      <section className="hero-card article-hero">
+        <div>
+          <span className="eyebrow">Admin Editor</span>
+          <h1 className="hero-title">{article.frontmatter.title}</h1>
+          <p className="hero-subtitle">在这里复制文章、选择 Intercom collection、发布文章或执行删除。</p>
+        </div>
+        <div className="row">
+          <a className="btn btn-ghost" href="/admin">返回后台</a>
+          <a className="btn btn-ghost" href={`/kb/${slug}`} target="_blank" rel="noreferrer">
+            查看公开页
+          </a>
+        </div>
+      </section>
 
-      <div className="admin-actions">
-        <CopyButtons articleSelector="#article" />
-        <DeleteButton slug={slug} />
-      </div>
+      <section className="surface-card">
+        <div className="section-head">
+          <div>
+            <h2 className="section-title">管理操作</h2>
+            <p className="muted">先选择目标 collection，再发布到 Intercom。</p>
+          </div>
+        </div>
 
-      <PublishPanel slug={slug} />
+        <div className="admin-actions">
+          <CopyButtons articleSelector="#article" />
+          <DeleteButton slug={slug} />
+        </div>
 
-      <hr className="hr" />
+        <PublishPanel slug={slug} />
+      </section>
 
-      <section id="article" className="article">
-        <div dangerouslySetInnerHTML={{ __html: article.html }} />
+      <section className="surface-card">
+        <div className="section-head">
+          <div>
+            <h2 className="section-title">文章预览</h2>
+            <p className="muted">下方为当前文章的渲染结果。</p>
+          </div>
+        </div>
+
+        <section id="article" className="article article-shell">
+          <div dangerouslySetInnerHTML={{ __html: article.html }} />
+        </section>
       </section>
     </div>
   );

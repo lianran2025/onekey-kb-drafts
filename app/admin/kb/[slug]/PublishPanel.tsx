@@ -1,16 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 type CollectionItem = {
   id: string;
   name: string;
   pathLabel: string;
+  parentId?: string | null;
 };
 
 export function PublishPanel({ slug }: { slug: string }) {
   const [collections, setCollections] = useState<CollectionItem[]>([]);
-  const [collectionId, setCollectionId] = useState('');
+  const [selectedPath, setSelectedPath] = useState<string[]>([]);
   const [loadingCollections, setLoadingCollections] = useState(true);
   const [publishing, setPublishing] = useState(false);
   const [status, setStatus] = useState('');
@@ -28,9 +29,6 @@ export function PublishPanel({ slug }: { slug: string }) {
         if (!active) return;
         const items = (data?.collections || []) as CollectionItem[];
         setCollections(items);
-        if (items.length > 0) {
-          setCollectionId(items[0].id);
-        }
       } catch (error) {
         if (!active) return;
         setStatus(error instanceof Error ? error.message : '读取 collection 失败');
@@ -44,6 +42,37 @@ export function PublishPanel({ slug }: { slug: string }) {
       active = false;
     };
   }, []);
+
+  const getChildren = (parentId: string | null) =>
+    collections
+      .filter((item) => (item.parentId || null) === parentId)
+      .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'));
+
+  const levels = useMemo(() => {
+    const result: Array<{ parentId: string | null; options: CollectionItem[]; selected: string }> = [];
+    let parentId: string | null = null;
+
+    for (let index = 0; index < 8; index += 1) {
+      const options = getChildren(parentId);
+      if (options.length === 0) break;
+      const selected = selectedPath[index] || '';
+      result.push({ parentId, options, selected });
+      if (!selected) break;
+      parentId = selected;
+    }
+
+    return result;
+  }, [collections, selectedPath]);
+
+  const collectionId = selectedPath[selectedPath.length - 1] || '';
+
+  const updateLevel = (index: number, value: string) => {
+    setSelectedPath((current) => {
+      const next = current.slice(0, index);
+      if (value) next.push(value);
+      return next;
+    });
+  };
 
   const onPublish = async () => {
     if (!collectionId) {
@@ -73,23 +102,38 @@ export function PublishPanel({ slug }: { slug: string }) {
   };
 
   return (
-    <div className="publish-panel">
+    <div className="publish-panel publish-panel-rich">
       <label className="publish-label">
         <span>Intercom Collection</span>
-        <select
-          className="publish-select"
-          value={collectionId}
-          onChange={(event) => setCollectionId(event.target.value)}
-          disabled={loadingCollections || publishing || collections.length === 0}
-        >
-          <option value="">请选择 collection</option>
-          {collections.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.pathLabel || item.name}
-            </option>
+        <div className="cascade-grid">
+          {levels.length === 0 && !loadingCollections ? <div className="muted">未读取到 collection</div> : null}
+          {levels.map((level, index) => (
+            <select
+              key={`${level.parentId ?? 'root'}-${index}`}
+              className="publish-select"
+              value={level.selected}
+              onChange={(event) => updateLevel(index, event.target.value)}
+              disabled={loadingCollections || publishing}
+            >
+              <option value="">请选择第 {index + 1} 级目录</option>
+              {level.options.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
           ))}
-        </select>
+        </div>
       </label>
+
+      {collectionId ? (
+        <div className="selected-collection">
+          当前选择：
+          <span className="badge">
+            {collections.find((item) => item.id === collectionId)?.pathLabel || collectionId}
+          </span>
+        </div>
+      ) : null}
 
       <div className="row">
         <button className="btn" onClick={onPublish} disabled={loadingCollections || publishing || !collectionId}>
