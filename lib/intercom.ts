@@ -331,26 +331,44 @@ async function getArticleById(articleId: string) {
   return requestJson(`/articles/${articleId}`);
 }
 
+async function getHelpCenters() {
+  const payload = await requestJson('/help_center/help_centers');
+  return ((payload as { data?: Record<string, any>[] }).data) || [];
+}
+
 async function findArticleInList(articleId: string) {
-  let path = '/articles';
-  for (let page = 0; page < 20; page += 1) {
+  const helpCenters = await getHelpCenters();
+  const helpCenterId = helpCenters[0]?.id;
+
+  let path = helpCenterId
+    ? `/articles?help_center_id=${encodeURIComponent(String(helpCenterId))}`
+    : '/articles';
+
+  for (let page = 0; page < 50; page += 1) {
     const payload = await requestJson(path);
     const items = ((payload as { data?: Record<string, any>[] }).data) || [];
     const found = items.find((item) => String(item.id) === String(articleId));
     if (found) return found;
+
     const next = (payload as { pages?: { next?: string | { starting_after?: string } } }).pages?.next;
     if (!next) break;
+
     if (typeof next === 'string') {
       const url = new URL(next);
       path = `${url.pathname}${url.search}`;
       continue;
     }
+
     if (next.starting_after) {
-      path = `/articles?starting_after=${encodeURIComponent(next.starting_after)}`;
+      path = helpCenterId
+        ? `/articles?help_center_id=${encodeURIComponent(String(helpCenterId))}&starting_after=${encodeURIComponent(next.starting_after)}`
+        : `/articles?starting_after=${encodeURIComponent(next.starting_after)}`;
       continue;
     }
+
     break;
   }
+
   return null;
 }
 
