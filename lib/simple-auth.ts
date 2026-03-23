@@ -47,6 +47,23 @@ function decode<T>(token?: string | null): T | null {
   }
 }
 
+function getInternalApiToken() {
+  return String(process.env.INTERNAL_API_TOKEN || '').trim();
+}
+
+export function isValidInternalApiToken(token?: string | null) {
+  const expected = getInternalApiToken();
+  if (!expected || !token) return false;
+  return token === expected;
+}
+
+export function extractBearerToken(request: Request | NextRequest) {
+  const header = request.headers.get('authorization') || request.headers.get('Authorization');
+  if (!header) return null;
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : null;
+}
+
 export async function getSessionEmail() {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
@@ -65,6 +82,20 @@ export async function requireSessionEmail() {
 
 export async function requireApiSessionEmail() {
   return getSessionEmail();
+}
+
+export async function requirePrivateApiAccess(request: Request | NextRequest) {
+  const bearer = extractBearerToken(request);
+  if (isValidInternalApiToken(bearer)) {
+    return { mode: 'internal' as const };
+  }
+
+  const email = await getSessionEmail();
+  if (email) {
+    return { mode: 'session' as const, email };
+  }
+
+  return null;
 }
 
 export function unauthorizedJson() {

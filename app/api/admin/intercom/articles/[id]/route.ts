@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
-import { requireApiSessionEmail, unauthorizedJson } from '@/lib/simple-auth';
+import { requirePrivateApiAccess, unauthorizedJson } from '@/lib/simple-auth';
 import { getEditableArticle, updateArticle, buildOpenUrl, validateIntercomConfig } from '@/lib/intercom';
 
 export async function GET(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  const session = await requireApiSessionEmail();
-  if (!session) return unauthorizedJson();
+  const access = await requirePrivateApiAccess(request);
+  if (!access) return unauthorizedJson();
 
   try {
     validateIntercomConfig();
@@ -28,8 +28,8 @@ export async function PUT(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
-  const session = await requireApiSessionEmail();
-  if (!session) return unauthorizedJson();
+  const access = await requirePrivateApiAccess(request);
+  if (!access) return unauthorizedJson();
 
   try {
     validateIntercomConfig();

@@ -101,7 +101,38 @@ INTERCOM_LOCALE=zh-CN
 - 发布按钮会直接把当前文章渲染后的 HTML 发布到你选择的 collection
 - 发布前会自动对 HTML 结构做清洗，尽量压缩多余段落与换行，并对标题、段落、列表、提示块、链接等标签做 Intercom 样式适配
 - 参考来源模块不会被发布到 Intercom
-- Intercom token 仅在服务端使用，不会暴露到前端
+- Intercom token 仅在 Vercel 服务端使用，不会暴露到前端
+
+## Vercel 私有 API（推荐给对话式流程）
+
+如果你希望通过对话式流程读取、修改、更新 Intercom 文章，而又不想在 VPS 中暴露 `INTERCOM_ACCESS_TOKEN`，推荐使用 Vercel 私有 API 方案。
+
+新增环境变量：
+
+```bash
+INTERNAL_API_TOKEN=一个单独的内部调用 token
+```
+
+说明：
+
+- Intercom 主 Token 仍然只放在 Vercel
+- 外部服务（例如 VPS / 对话代理）不要直接调用 Intercom API
+- 而是调用你自己的 Vercel API，并在请求头中携带：
+
+```bash
+Authorization: Bearer <INTERNAL_API_TOKEN>
+```
+
+当前已支持的私有 API 包括：
+
+- `GET /api/admin/intercom/collections`
+- `GET /api/admin/intercom/articles/:id`
+- `PUT /api/admin/intercom/articles/:id`
+
+这样可以做到：
+- VPS 不持有 `INTERCOM_ACCESS_TOKEN`
+- Intercom 主权限边界留在 Vercel
+- 对话式读取 / 修改 / 更新流程仍可继续自动化
 
 ## 复制粘贴建议
 
