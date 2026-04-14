@@ -18,12 +18,17 @@ export async function GET(request: Request) {
     const locale = url.searchParams.get('locale') || process.env.INTERCOM_LOCALE || 'zh-CN';
     const statusFilter = url.searchParams.get('status') || '';
     const query = normalizeQuery(url.searchParams.get('query') || '');
+    const staleDays = Number(url.searchParams.get('staleDays') || '90');
 
     const [collections, articles, store] = await Promise.all([
       getCollections(locale),
       listArticles(locale),
       readReviewStore(),
     ]);
+
+    const staleThreshold = Number.isFinite(staleDays) && staleDays > 0
+      ? Date.now() - staleDays * 24 * 60 * 60 * 1000
+      : null;
 
     const items = articles
       .map((article) => {
@@ -46,6 +51,12 @@ export async function GET(request: Request) {
         };
       })
       .filter((item) => (statusFilter ? item.reviewStatus === statusFilter : item.reviewStatus !== 'archived'))
+      .filter((item) => {
+        if (!staleThreshold) return true;
+        const updated = Date.parse(item.updatedAt || '');
+        if (Number.isNaN(updated)) return true;
+        return updated <= staleThreshold;
+      })
       .filter((item) => {
         if (!query) return true;
         return [item.title, item.articleId, item.collectionPathLabel, item.reviewNote]

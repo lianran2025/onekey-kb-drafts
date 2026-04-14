@@ -39,13 +39,14 @@ function formatDate(value?: string) {
   if (!value) return '—';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString('zh-CN', { hour12: false });
+  return date.toLocaleDateString('zh-CN');
 }
 
 export function ReviewWorkbench() {
   const [articleId, setArticleId] = useState('');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [staleDays, setStaleDays] = useState('90');
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [article, setArticle] = useState<LoadedArticle | null>(null);
   const [selectedItem, setSelectedItem] = useState<ReviewItem | null>(null);
@@ -58,14 +59,16 @@ export function ReviewWorkbench() {
 
   const filteredItems = useMemo(() => items, [items]);
 
-  const loadList = async (params?: { status?: string; query?: string }) => {
+  const loadList = async (params?: { status?: string; query?: string; staleDays?: string }) => {
     setLoadingList(true);
     try {
       const search = new URLSearchParams();
       const nextStatus = params?.status ?? statusFilter;
       const nextQuery = params?.query ?? query;
+      const nextStaleDays = params?.staleDays ?? staleDays;
       if (nextStatus) search.set('status', nextStatus);
       if (nextQuery.trim()) search.set('query', nextQuery.trim());
+      if (nextStaleDays) search.set('staleDays', nextStaleDays);
       const res = await fetch(`/api/admin/intercom/review?${search.toString()}`, { cache: 'no-store' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || '读取巡检列表失败');
@@ -168,7 +171,7 @@ export function ReviewWorkbench() {
               </button>
             </div>
 
-            <div className="review-toolbar compact">
+            <div className="review-toolbar compact review-toolbar-triple">
               <select
                 className="publish-select"
                 value={statusFilter}
@@ -183,6 +186,21 @@ export function ReviewWorkbench() {
                     {option.label}
                   </option>
                 ))}
+              </select>
+
+              <select
+                className="publish-select"
+                value={staleDays}
+                onChange={(e) => {
+                  setStaleDays(e.target.value);
+                  loadList({ staleDays: e.target.value });
+                }}
+              >
+                <option value="30">30 天以上未更新</option>
+                <option value="90">3 个月以上未更新</option>
+                <option value="180">6 个月以上未更新</option>
+                <option value="365">1 年以上未更新</option>
+                <option value="">全部文章</option>
               </select>
 
               <input
