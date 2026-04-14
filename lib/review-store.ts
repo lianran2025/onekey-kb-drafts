@@ -1,5 +1,13 @@
-import fs from 'fs';
-import path from 'path';
+const GITHUB_OWNER = process.env.GITHUB_OWNER || 'lianran2025';
+const GITHUB_REPO = process.env.GITHUB_REPO || 'onekey-kb-drafts';
+const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'main';
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const STORE_PATH = 'data/intercom-review-state.json';
+
+type GitHubContentResponse = {
+  sha?: string;
+  content?: string;
+};
 
 export type ReviewStatus = 'pending' | 'needs_update' | 'no_change_needed' | 'archived';
 
@@ -23,37 +31,95 @@ export type ReviewStore = {
   records: Record<string, ReviewRecord>;
 };
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const STORE_PATH = path.join(DATA_DIR, 'intercom-review-state.json');
-
-function ensureStoreDir() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-
 function defaultStore(): ReviewStore {
   return { records: {} };
 }
 
-export function readReviewStore(): ReviewStore {
-  ensureStoreDir();
-  if (!fs.existsSync(STORE_PATH)) return defaultStore();
+function getApiBase() {
+  const encodedPath = STORE_PATH.split('/').map(encodeURIComponent).join('/');
+  return `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodedPath}`;
+}
+
+function getHeaders() {
+  if (!GITHUB_TOKEN) {
+    throw new Error('GITHUB_TOKEN 未配置，无法保存巡检状态');
+  }
+
+  return {
+    Accept: 'application/vnd.github+json',
+    Authorization: `Bearer ${GITHUB_TOKEN}`,
+    'X-GitHub-Api-Version': '2022-11-28',
+    'Content-Type': 'application/json',
+  };
+}
+
+function decodeContent(content?: string) {
+  if (!content) return '';
+  return Buffer.from(content.replace(/\n/g, ''), 'base64').toString('utf8');
+}
+
+function encodeContent(content: string) {
+  return Buffer.from(content, 'utf8').toString('base64');
+}
+
+async function fetchStoreFile() {
+  const apiBase = getApiBase();
+  const res = await fetch(`${apiBase}?ref=${encodeURIComponent(GITHUB_BRANCH)}`, {
+    method: 'GET',
+    headers: getHeaders(),
+    cache: 'no-store',
+  });
+
+  if (res.status === 404) {
+    return { sha: undefined, store: defaultStore() };
+  }
+
+  if (!res.ok) {
+    throw new Error(`读取 GitHub 巡检状态失败：${await res.text()}`);
+  }
+
+  const file = (await res.json()) as GitHubContentResponse;
+  const raw = decodeContent(file.content);
+  if (!raw.trim()) {
+    return { sha: file.sha, store: defaultStore() };
+  }
 
   try {
-    const raw = fs.readFileSync(STORE_PATH, 'utf8');
-    if (!raw.trim()) return defaultStore();
     const parsed = JSON.parse(raw) as ReviewStore;
-    return parsed?.records ? parsed : defaultStore();
+    return { sha: file.sha, store: parsed?.records ? parsed : defaultStore() };
   } catch {
-    return defaultStore();
+    return { sha: file.sha, store: defaultStore() };
   }
 }
 
-export function writeReviewStore(store: ReviewStore) {
-  ensureStoreDir();
-  fs.writeFileSync(STORE_PATH, JSON.stringify(store, null, 2), 'utf8');
+async function saveStoreFile(store: ReviewStore, sha?: string) {
+  const apiBase = getApiBase();
+  const payload: Record<string, unknown> = {
+    message: 'chore: update intercom review state',
+    content: encodeContent(JSON.stringify(store, null, 2)),
+    branch: GITHUB_BRANCH,
+  };
+
+  if (sha) payload.sha = sha;
+
+  const res = await fetch(apiBase, {
+    method: 'PUT',
+    headers: getHeaders(),
+    body: JSON.stringify(payload),
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    throw new Error(`写入 GitHub 巡检状态失败：${await res.text()}`);
+  }
 }
 
-export function upsertReviewRecord(input: {
+export async function readReviewStore(): Promise<ReviewStore> {
+  const { store } = await fetchStoreFile();
+  return store;
+}
+
+export async function upsertReviewRecord(input: {
   articleId: string;
   title?: string;
   collectionId?: string;
@@ -66,7 +132,7 @@ export function upsertReviewRecord(input: {
   markReviewed?: boolean;
 }) {
   const now = new Date().toISOString();
-  const store = readReviewStore();
+  const { sha, store } = await fetchStoreFile();
   const current = store.records[input.articleId];
 
   const next: ReviewRecord = {
@@ -93,6 +159,6 @@ export function upsertReviewRecord(input: {
   }
 
   store.records[input.articleId] = next;
-  writeReviewStore(store);
+  await saveStoreFile(store, sha);
   return next;
 }

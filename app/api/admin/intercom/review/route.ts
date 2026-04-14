@@ -19,8 +19,11 @@ export async function GET(request: Request) {
     const statusFilter = url.searchParams.get('status') || '';
     const query = normalizeQuery(url.searchParams.get('query') || '');
 
-    const [collections, articles] = await Promise.all([getCollections(locale), listArticles(locale)]);
-    const store = readReviewStore();
+    const [collections, articles, store] = await Promise.all([
+      getCollections(locale),
+      listArticles(locale),
+      readReviewStore(),
+    ]);
 
     const items = articles
       .map((article) => {
@@ -83,7 +86,7 @@ export async function POST(request: Request) {
     const collections = await getCollections(locale);
     const collection = collections.find((item) => item.id === article.collectionId);
 
-    const record = upsertReviewRecord({
+    const record = await upsertReviewRecord({
       articleId,
       title: article.title,
       collectionId: article.collectionId,
