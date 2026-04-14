@@ -249,7 +249,7 @@ export function ReviewWorkbench() {
         <section className="review-detail">
           {article ? (
             <div className="review-detail-stack">
-              <div className="surface-card review-card">
+              <div className="surface-card review-card review-summary-card">
                 <div className="review-detail-head">
                   <div>
                     <h2 className="review-detail-title">{article.title}</h2>
@@ -276,48 +276,46 @@ export function ReviewWorkbench() {
                 </div>
               </div>
 
-              <div className="surface-card review-card">
-                <div className="review-form-grid">
-                  <div>
-                    <label className="meta-label">巡检结论</label>
-                    <select className="publish-select" value={reviewStatus} onChange={(e) => setReviewStatus(e.target.value as ReviewStatus)}>
-                      {STATUS_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+              <div className="review-editor-grid">
+                <div className="surface-card review-card review-form-card">
+                  <div className="review-form-grid">
+                    <div>
+                      <label className="meta-label">巡检结论</label>
+                      <select className="publish-select" value={reviewStatus} onChange={(e) => setReviewStatus(e.target.value as ReviewStatus)}>
+                        {STATUS_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="review-note-wrap">
+                    <label className="meta-label">备注</label>
+                    <textarea
+                      className="intercom-textarea"
+                      value={reviewNote}
+                      onChange={(e) => setReviewNote(e.target.value)}
+                      placeholder="记录本轮检查结论，例如：暂不修改 / 等产品确认后统一处理 / 已发现旧固件表述"
+                    />
+                  </div>
+
+                  <div className="row">
+                    <button className="btn" type="button" onClick={saveReview} disabled={saving}>
+                      {saving ? '保存中...' : '保存巡检结果'}
+                    </button>
                   </div>
                 </div>
 
-                <div className="review-note-wrap">
-                  <label className="meta-label">备注</label>
-                  <textarea
-                    className="intercom-textarea"
-                    value={reviewNote}
-                    onChange={(e) => setReviewNote(e.target.value)}
-                    placeholder="记录本轮检查结论，例如：暂不修改 / 等产品确认后统一处理 / 已发现旧固件表述"
-                  />
-                </div>
-
-                <div className="row">
-                  <button className="btn" type="button" onClick={saveReview} disabled={saving}>
-                    {saving ? '保存中...' : '保存巡检结果'}
-                  </button>
+                <div className="surface-card review-card review-content-card">
+                  <div className="article article-prose review-article-prose" dangerouslySetInnerHTML={{ __html: article.html }} />
                 </div>
               </div>
-
-              <div className="surface-card review-card">
-                <div className="article article-prose review-article-prose" dangerouslySetInnerHTML={{ __html: article.html }} />
-              </div>
             </div>
-          ) : (
-            <div className="surface-card review-card">
-              <p className="muted">请先输入文章 ID，或从左侧列表打开文章。</p>
-            </div>
-          )}
+          ) : null}
 
-          {status ? <p className="muted">{status}</p> : null}
+          {status ? <p className="muted review-status-text">{status}</p> : null}
         </section>
       </div>
     </div>
