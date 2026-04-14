@@ -386,6 +386,30 @@ function getLocalizedArticleContent(article: Record<string, any>, locale: string
   return article.translated_content?.[locale] || article;
 }
 
+function normalizeUpdatedAt(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return new Date(value * 1000).toISOString();
+  }
+
+  const text = String(value || '').trim();
+  if (!text) return '';
+
+  if (/^\d{10}$/.test(text)) {
+    return new Date(Number(text) * 1000).toISOString();
+  }
+
+  if (/^\d{13}$/.test(text)) {
+    return new Date(Number(text)).toISOString();
+  }
+
+  const parsed = Date.parse(text);
+  if (!Number.isNaN(parsed)) {
+    return new Date(parsed).toISOString();
+  }
+
+  return text;
+}
+
 function buildContent(article: IntercomDraftArticle, authorId: string | number, state: string, locale: string) {
   return {
     title: article.title,
@@ -494,7 +518,7 @@ export async function listArticles(locale = 'zh-CN'): Promise<IntercomArticleLis
       state: String(localized.state || item.state || 'draft'),
       collectionId,
       collectionPathLabel: collection?.pathLabel || '',
-      updatedAt: String(localized.updated_at || item.updated_at || item.updated_at_timestamp || ''),
+      updatedAt: normalizeUpdatedAt(localized.updated_at || item.updated_at || item.updated_at_timestamp || ''),
       publicUrl: String(localized.url || item.url || ''),
     };
   });
