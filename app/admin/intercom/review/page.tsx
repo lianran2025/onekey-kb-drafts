@@ -1,9 +1,9 @@
 import { requireSessionEmail } from '@/lib/simple-auth';
-import { IntercomEditor } from './IntercomEditor';
+import { ReviewWorkbench } from './ReviewWorkbench';
 
 export const dynamic = 'force-dynamic';
 
-export default async function AdminIntercomPage() {
+export default async function AdminIntercomReviewPage() {
   await requireSessionEmail();
 
   return (
@@ -11,14 +11,14 @@ export default async function AdminIntercomPage() {
       <header className="article-topbar compact-topbar">
         <div className="article-hero-header compact-hero-header">
           <div className="article-hero-copy">
-            <h1 className="article-display-title">Intercom 文章修改</h1>
+            <h1 className="article-display-title">Intercom 巡检工作台</h1>
+            <p className="muted">按更新时间筛选和复审文章，记录状态、备注，并支持归档与恢复。</p>
           </div>
-          <a className="btn btn-ghost" href="/admin/intercom/review">巡检工作台</a>
         </div>
       </header>
 
       <section className="surface-card compact-surface">
-        <IntercomEditor />
+        <ReviewWorkbench />
       </section>
     </div>
   );
