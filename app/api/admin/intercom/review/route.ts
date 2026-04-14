@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireAdminApiSession, unauthorizedJson } from '@/lib/auth-guard';
+import { requireApiSessionEmail, unauthorizedJson } from '@/lib/simple-auth';
 import { getEditableArticle, getCollections, buildOpenUrl, listArticles } from '@/lib/intercom';
 import { readReviewStore, upsertReviewRecord, type ReviewStatus } from '@/lib/review-store';
 
@@ -10,8 +10,8 @@ function normalizeQuery(value: string) {
 }
 
 export async function GET(request: Request) {
-  const session = await requireAdminApiSession();
-  if (!session) return unauthorizedJson();
+  const email = await requireApiSessionEmail();
+  if (!email) return unauthorizedJson();
 
   try {
     const url = new URL(request.url);
@@ -65,8 +65,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const session = await requireAdminApiSession();
-  if (!session) return unauthorizedJson();
+  const email = await requireApiSessionEmail();
+  if (!email) return unauthorizedJson();
 
   try {
     const locale = process.env.INTERCOM_LOCALE || 'zh-CN';
