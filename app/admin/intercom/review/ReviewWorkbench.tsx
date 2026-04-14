@@ -22,8 +22,6 @@ type ReviewItem = {
 type LoadedArticle = {
   id: string;
   title: string;
-  body: string;
-  html: string;
   state: string;
   collectionId: string;
 };
@@ -97,7 +95,7 @@ export function ReviewWorkbench() {
     try {
       const [articleRes, reviewRes] = await Promise.all([
         fetch(`/api/admin/intercom/articles/${encodeURIComponent(nextArticleId)}?locale=zh-CN`, { cache: 'no-store' }),
-        fetch(`/api/admin/intercom/review?status=&query=${encodeURIComponent(nextArticleId)}`, { cache: 'no-store' }),
+        fetch(`/api/admin/intercom/review?status=&staleDays=&query=${encodeURIComponent(nextArticleId)}`, { cache: 'no-store' }),
       ]);
       const articleData = await articleRes.json().catch(() => ({}));
       const reviewData = await reviewRes.json().catch(() => ({}));
@@ -273,43 +271,49 @@ export function ReviewWorkbench() {
                     <div className="meta-label">最近检查时间</div>
                     <div className="meta-value">{formatDate(selectedItem?.lastReviewedAt)}</div>
                   </div>
+                  <div>
+                    <div className="meta-label">快速操作</div>
+                    <div className="meta-value">
+                      {selectedItem?.publicUrl ? (
+                        <a className="review-public-link" href={selectedItem.publicUrl} target="_blank" rel="noreferrer">
+                          点击查看公开文章
+                        </a>
+                      ) : (
+                        '暂无公开链接'
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="review-editor-grid">
-                <div className="surface-card review-card review-form-card">
-                  <div className="review-form-grid">
-                    <div>
-                      <label className="meta-label">巡检结论</label>
-                      <select className="publish-select" value={reviewStatus} onChange={(e) => setReviewStatus(e.target.value as ReviewStatus)}>
-                        {STATUS_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="review-note-wrap">
-                    <label className="meta-label">备注</label>
-                    <textarea
-                      className="intercom-textarea"
-                      value={reviewNote}
-                      onChange={(e) => setReviewNote(e.target.value)}
-                      placeholder="记录本轮检查结论，例如：暂不修改 / 等产品确认后统一处理 / 已发现旧固件表述"
-                    />
-                  </div>
-
-                  <div className="row">
-                    <button className="btn" type="button" onClick={saveReview} disabled={saving}>
-                      {saving ? '保存中...' : '保存巡检结果'}
-                    </button>
+              <div className="surface-card review-card review-form-card review-form-card-wide">
+                <div className="review-form-grid">
+                  <div>
+                    <label className="meta-label">巡检结论</label>
+                    <select className="publish-select" value={reviewStatus} onChange={(e) => setReviewStatus(e.target.value as ReviewStatus)}>
+                      {STATUS_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
-                <div className="surface-card review-card review-content-card">
-                  <div className="article article-prose review-article-prose" dangerouslySetInnerHTML={{ __html: article.html }} />
+                <div className="review-note-wrap">
+                  <label className="meta-label">备注</label>
+                  <textarea
+                    className="intercom-textarea"
+                    value={reviewNote}
+                    onChange={(e) => setReviewNote(e.target.value)}
+                    placeholder="记录本轮检查结论，例如：暂不修改 / 等产品确认后统一处理 / 已发现旧固件表述"
+                  />
+                </div>
+
+                <div className="row">
+                  <button className="btn" type="button" onClick={saveReview} disabled={saving}>
+                    {saving ? '保存中...' : '保存巡检结果'}
+                  </button>
                 </div>
               </div>
             </div>
