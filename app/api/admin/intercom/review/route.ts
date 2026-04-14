@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAdminApiSession, unauthorizedJson } from '@/lib/auth-guard';
-import { getEditableArticle, getCollections, buildOpenUrl } from '@/lib/intercom';
+import { getEditableArticle, getCollections, buildOpenUrl, listArticles } from '@/lib/intercom';
 import { readReviewStore, upsertReviewRecord, type ReviewStatus } from '@/lib/review-store';
 
 export const dynamic = 'force-dynamic';
@@ -19,9 +19,29 @@ export async function GET(request: Request) {
     const statusFilter = url.searchParams.get('status') || '';
     const query = normalizeQuery(url.searchParams.get('query') || '');
 
-    const collections = await getCollections(locale);
+    const [collections, articles] = await Promise.all([getCollections(locale), listArticles(locale)]);
     const store = readReviewStore();
-    const items = Object.values(store.records)
+
+    const items = articles
+      .map((article) => {
+        const record = store.records[article.id];
+        const reviewStatus = record?.reviewStatus || 'pending';
+        return {
+          articleId: article.id,
+          title: article.title,
+          collectionId: article.collectionId,
+          collectionPathLabel: article.collectionPathLabel,
+          updatedAt: article.updatedAt,
+          state: article.state,
+          publicUrl: article.publicUrl,
+          reviewStatus,
+          reviewNote: record?.reviewNote || '',
+          lastReviewedAt: record?.lastReviewedAt || '',
+          archivedAt: record?.archivedAt || '',
+          collectionName:
+            collections.find((collection) => collection.id === article.collectionId)?.name || article.collectionPathLabel || '',
+        };
+      })
       .filter((item) => (statusFilter ? item.reviewStatus === statusFilter : item.reviewStatus !== 'archived'))
       .filter((item) => {
         if (!query) return true;
@@ -33,12 +53,7 @@ export async function GET(request: Request) {
         const a = left.updatedAt || '';
         const b = right.updatedAt || '';
         return a.localeCompare(b);
-      })
-      .map((item) => ({
-        ...item,
-        collectionName:
-          collections.find((collection) => collection.id === item.collectionId)?.name || item.collectionPathLabel || '',
-      }));
+      });
 
     return NextResponse.json({ items });
   } catch (error) {

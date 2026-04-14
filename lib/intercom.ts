@@ -30,6 +30,16 @@ export type IntercomEditableArticle = {
   needsConfirmation: string[];
 };
 
+export type IntercomArticleListItem = {
+  id: string;
+  title: string;
+  state: string;
+  collectionId: string;
+  collectionPathLabel: string;
+  updatedAt: string;
+  publicUrl: string;
+};
+
 type IntercomCollectionRaw = {
   id: string | number;
   name?: string;
@@ -458,6 +468,36 @@ export async function getEditableArticle(articleId: string, locale = 'zh-CN'): P
     html: rawHtml,
     needsConfirmation: [],
   };
+}
+
+export async function listArticles(locale = 'zh-CN'): Promise<IntercomArticleListItem[]> {
+  const helpCenters = await getHelpCenters();
+  const helpCenterId = helpCenters[0]?.id;
+  const path = helpCenterId
+    ? `/articles?help_center_id=${encodeURIComponent(String(helpCenterId))}`
+    : '/articles';
+
+  const [collections, items] = await Promise.all([
+    getCollections(locale),
+    requestAllPages(path),
+  ]);
+
+  const collectionMap = new Map(collections.map((item) => [item.id, item]));
+
+  return (items as Record<string, any>[]).map((item) => {
+    const localized = getLocalizedArticleContent(item, locale);
+    const collectionId = String(item.parent_id || '');
+    const collection = collectionMap.get(collectionId);
+    return {
+      id: String(item.id),
+      title: String(localized.title || item.title || ''),
+      state: String(localized.state || item.state || 'draft'),
+      collectionId,
+      collectionPathLabel: collection?.pathLabel || '',
+      updatedAt: String(localized.updated_at || item.updated_at || item.updated_at_timestamp || ''),
+      publicUrl: String(localized.url || item.url || ''),
+    };
+  });
 }
 
 export async function publishArticle({ article, collectionId, locale, state }: { article: IntercomDraftArticle; collectionId: string; locale: string; state: string; }) {
