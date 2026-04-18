@@ -54,6 +54,7 @@ export function ReviewWorkbench() {
   const [loadingList, setLoadingList] = useState(false);
   const [loadingArticle, setLoadingArticle] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const filteredItems = useMemo(() => items, [items]);
 
@@ -120,6 +121,25 @@ export function ReviewWorkbench() {
   const openFromList = async (item: ReviewItem) => {
     setArticleId(item.articleId);
     await loadArticle(item.articleId);
+  };
+
+  const syncArticles = async () => {
+    setSyncing(true);
+    setStatus('');
+    try {
+      const res = await fetch('/api/admin/intercom/review/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || '同步失败');
+      setStatus(data?.message || '同步成功');
+      await loadList();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : '同步失败');
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const saveReview = async () => {
@@ -216,6 +236,11 @@ export function ReviewWorkbench() {
           <div className="review-list-head">
             <strong>巡检列表</strong>
             <span className="muted">按最后更新时间排序（越旧越靠前）</span>
+            <div className="row">
+              <button className="btn btn-small btn-ghost" type="button" onClick={syncArticles} disabled={syncing}>
+                {syncing ? '同步中...' : '同步 Intercom 文章'}
+              </button>
+            </div>
           </div>
 
           <div className="review-list">
