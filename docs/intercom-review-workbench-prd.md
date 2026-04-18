@@ -40,7 +40,7 @@
 - `archived`：已归档
 
 ## 数据设计
-新增本地数据文件：`data/intercom-review-state.json`
+新增巡检状态存储：`Supabase`（不再使用本地 JSON 文件）
 
 单条记录字段：
 - `articleId`
