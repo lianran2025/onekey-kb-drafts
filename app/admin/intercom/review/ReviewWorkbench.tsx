@@ -89,7 +89,9 @@ export function ReviewWorkbench() {
   const openArticle = (item: ReviewItem) => {
     if (item.publicUrl) {
       window.open(item.publicUrl, '_blank', 'noopener,noreferrer');
+      return;
     }
+    setStatus(`这篇文章暂时没有可用的公开链接：${item.articleId}`);
   };
 
   return (

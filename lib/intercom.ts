@@ -40,6 +40,23 @@ export type IntercomArticleListItem = {
   publicUrl: string;
 };
 
+function slugifyArticleTitle(title: string) {
+  return String(title || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fff]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function buildFallbackPublicUrl(articleId: string, locale: string, title: string) {
+  const base = 'https://help.onekey.so';
+  const slug = slugifyArticleTitle(title);
+  return slug
+    ? `${base}/${locale}/articles/${articleId}-${slug}`
+    : `${base}/${locale}/articles/${articleId}`;
+}
+
 type IntercomCollectionRaw = {
   id: string | number;
   name?: string;
@@ -512,14 +529,16 @@ export async function listArticles(locale = 'zh-CN'): Promise<IntercomArticleLis
     const localized = getLocalizedArticleContent(item, locale);
     const collectionId = String(item.parent_id || '');
     const collection = collectionMap.get(collectionId);
+    const title = String(localized.title || item.title || '');
+    const rawUrl = String(localized.url || item.url || '');
     return {
       id: String(item.id),
-      title: String(localized.title || item.title || ''),
+      title,
       state: String(localized.state || item.state || 'draft'),
       collectionId,
       collectionPathLabel: collection?.pathLabel || '',
       updatedAt: normalizeUpdatedAt(localized.updated_at || item.updated_at || item.updated_at_timestamp || ''),
-      publicUrl: String(localized.url || item.url || ''),
+      publicUrl: rawUrl || buildFallbackPublicUrl(String(item.id), locale, title),
     };
   });
 }
