@@ -141,6 +141,7 @@ export async function listReviewItems(params?: {
         updatedRecordAt: review?.updated_at || '',
       } as ReviewRecord;
     })
+    .filter((item) => item.state === 'published' && Boolean(item.publicUrl))
     .filter((item) => (statusFilter ? item.reviewStatus === statusFilter : item.reviewStatus !== 'archived'))
     .filter((item) => {
       if (!staleThreshold) return true;
