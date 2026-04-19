@@ -81,6 +81,86 @@ export async function readReviewStore(): Promise<ReviewStore> {
   return { records };
 }
 
+export async function listReviewItems(params?: {
+  status?: string;
+  query?: string;
+  staleDays?: number;
+}) {
+  const supabase = getSupabaseAdmin();
+  const staleDays = params?.staleDays ?? 90;
+  const staleThreshold = Number.isFinite(staleDays) && staleDays > 0
+    ? new Date(Date.now() - staleDays * 24 * 60 * 60 * 1000).toISOString()
+    : null;
+
+  const { data: articles, error } = await supabase
+    .from('intercom_articles')
+    .select(`
+      article_id,
+      title,
+      collection_id,
+      collection_path_label,
+      state,
+      public_url,
+      updated_at,
+      intercom_article_reviews (
+        review_status,
+        review_note,
+        last_reviewed_at,
+        archived_at,
+        created_at,
+        updated_at
+      )
+    `)
+    .order('updated_at', { ascending: true });
+
+  if (error) throw new Error(`读取巡检列表失败：${error.message}`);
+
+  const query = String(params?.query || '').trim().toLowerCase();
+  const statusFilter = String(params?.status || '').trim();
+
+  return ((articles || []) as Array<ArticleRow & { intercom_article_reviews?: ReviewRow[] | ReviewRow | null }>)
+    .map((article) => {
+      const reviewRaw = Array.isArray(article.intercom_article_reviews)
+        ? article.intercom_article_reviews[0]
+        : article.intercom_article_reviews || null;
+      const review = reviewRaw as ReviewRow | null;
+      const reviewStatus = review?.review_status || 'pending';
+      return {
+        articleId: article.article_id,
+        title: article.title || '',
+        collectionId: article.collection_id || '',
+        collectionPathLabel: article.collection_path_label || '',
+        updatedAt: article.updated_at || '',
+        state: article.state || '',
+        publicUrl: article.public_url || '',
+        reviewStatus,
+        reviewNote: review?.review_note || '',
+        lastReviewedAt: review?.last_reviewed_at || '',
+        archivedAt: review?.archived_at || '',
+        createdAt: review?.created_at || '',
+        updatedRecordAt: review?.updated_at || '',
+      } as ReviewRecord;
+    })
+    .filter((item) => (statusFilter ? item.reviewStatus === statusFilter : item.reviewStatus !== 'archived'))
+    .filter((item) => {
+      if (!staleThreshold) return true;
+      const updated = Date.parse(item.updatedAt || '');
+      if (Number.isNaN(updated)) return true;
+      return updated <= Date.parse(staleThreshold);
+    })
+    .filter((item) => {
+      if (!query) return true;
+      return [item.title, item.articleId, item.collectionPathLabel, item.reviewNote]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query));
+    });
+}
+
+export async function getReviewRecord(articleId: string) {
+  const items = await listReviewItems({ staleDays: 0, query: articleId });
+  return items.find((item) => item.articleId === articleId) || null;
+}
+
 export async function upsertReviewRecord(input: {
   articleId: string;
   title?: string;
