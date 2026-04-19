@@ -18,6 +18,14 @@ type ReviewItem = {
   archivedAt?: string;
 };
 
+type DraftReviewMap = Record<
+  string,
+  {
+    reviewStatus: ReviewStatus;
+    reviewNote: string;
+  }
+>;
+
 const STATUS_OPTIONS: Array<{ value: ReviewStatus; label: string }> = [
   { value: 'pending', label: '待检查' },
   { value: 'needs_update', label: '待修改' },
@@ -37,9 +45,11 @@ export function ReviewWorkbench() {
   const [statusFilter, setStatusFilter] = useState('');
   const [staleDays, setStaleDays] = useState('90');
   const [items, setItems] = useState<ReviewItem[]>([]);
+  const [drafts, setDrafts] = useState<DraftReviewMap>({});
   const [status, setStatus] = useState('');
   const [loadingList, setLoadingList] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   const loadList = async (params?: { status?: string; query?: string; staleDays?: string }) => {
     setLoadingList(true);
@@ -54,7 +64,19 @@ export function ReviewWorkbench() {
       const res = await fetch(`/api/admin/intercom/review?${search.toString()}`, { cache: 'no-store' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || '读取巡检列表失败');
-      setItems(data.items || []);
+      const nextItems = data.items || [];
+      setItems(nextItems);
+      setDrafts(
+        Object.fromEntries(
+          nextItems.map((item: ReviewItem) => [
+            item.articleId,
+            {
+              reviewStatus: item.reviewStatus,
+              reviewNote: item.reviewNote || '',
+            },
+          ])
+        )
+      );
     } catch (error) {
       setStatus(error instanceof Error ? error.message : '读取巡检列表失败');
     } finally {
@@ -92,6 +114,42 @@ export function ReviewWorkbench() {
       return;
     }
     setStatus(`这篇文章暂时没有可用的公开链接：${item.articleId}`);
+  };
+
+  const updateDraft = (articleId: string, patch: Partial<{ reviewStatus: ReviewStatus; reviewNote: string }>) => {
+    setDrafts((current) => ({
+      ...current,
+      [articleId]: {
+        reviewStatus: patch.reviewStatus ?? current[articleId]?.reviewStatus ?? 'pending',
+        reviewNote: patch.reviewNote ?? current[articleId]?.reviewNote ?? '',
+      },
+    }));
+  };
+
+  const saveReview = async (articleId: string) => {
+    const draft = drafts[articleId];
+    if (!draft) return;
+    setSavingId(articleId);
+    setStatus('');
+    try {
+      const res = await fetch('/api/admin/intercom/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          articleId,
+          reviewStatus: draft.reviewStatus,
+          reviewNote: draft.reviewNote,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || '保存失败');
+      setStatus(`已保存：${articleId}`);
+      await loadList();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : '保存失败');
+    } finally {
+      setSavingId(null);
+    }
   };
 
   return (
@@ -148,19 +206,56 @@ export function ReviewWorkbench() {
       <div className="review-list-simple">
         {loadingList ? <p className="muted">加载中...</p> : null}
         {!loadingList && items.length === 0 ? <p className="muted">暂无文章。</p> : null}
-        {items.map((item) => (
-          <button key={item.articleId} type="button" className="review-item" onClick={() => openArticle(item)}>
-            <div className="review-item-main review-item-main-wide">
-              <div className="admin-list-title">{item.title || `文章 ${item.articleId}`}</div>
-              <div className="review-item-meta">
-                <span className="badge">{item.articleId}</span>
-                {item.collectionPathLabel ? <span className="badge">{item.collectionPathLabel}</span> : null}
-                <span className="badge">{STATUS_OPTIONS.find((option) => option.value === item.reviewStatus)?.label}</span>
+        {items.map((item) => {
+          const draft = drafts[item.articleId] || {
+            reviewStatus: item.reviewStatus,
+            reviewNote: item.reviewNote || '',
+          };
+          return (
+            <div key={item.articleId} className="review-item-row surface-card">
+              <button type="button" className="review-item review-item-open" onClick={() => openArticle(item)}>
+                <div className="review-item-main review-item-main-wide">
+                  <div className="admin-list-title">{item.title || `文章 ${item.articleId}`}</div>
+                  <div className="review-item-meta">
+                    <span className="badge">{item.articleId}</span>
+                    {item.collectionPathLabel ? <span className="badge">{item.collectionPathLabel}</span> : null}
+                    <span className="badge">更新：{formatDate(item.updatedAt)}</span>
+                  </div>
+                </div>
+              </button>
+
+              <div className="review-inline-controls">
+                <select
+                  className="publish-select"
+                  value={draft.reviewStatus}
+                  onChange={(e) => updateDraft(item.articleId, { reviewStatus: e.target.value as ReviewStatus })}
+                >
+                  {STATUS_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+
+                <input
+                  className="publish-select"
+                  placeholder="备注（可选）"
+                  value={draft.reviewNote}
+                  onChange={(e) => updateDraft(item.articleId, { reviewNote: e.target.value })}
+                />
+
+                <button
+                  className="btn btn-small"
+                  type="button"
+                  onClick={() => saveReview(item.articleId)}
+                  disabled={savingId === item.articleId}
+                >
+                  {savingId === item.articleId ? '保存中...' : '保存'}
+                </button>
               </div>
-              <p className="muted review-item-dates">更新：{formatDate(item.updatedAt)}</p>
             </div>
-          </button>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
