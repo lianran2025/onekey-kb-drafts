@@ -168,9 +168,17 @@ export function IntercomEditor() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || '保存失败');
-      setArticle((current) => (current ? { ...current, html: normalizedHtml } : current));
-      setOriginalHtml(normalizedHtml);
-      setStatus(data?.openUrl ? `保存成功：${data.openUrl}` : '保存成功');
+
+      const readBackRes = await fetch(`/api/admin/intercom/articles/${encodeURIComponent(article.id)}?locale=zh-CN`, {
+        cache: 'no-store',
+      });
+      const readBackData = await readBackRes.json().catch(() => ({}));
+      if (!readBackRes.ok) throw new Error(readBackData?.error || '保存成功，但回读失败');
+
+      const readBackArticle = readBackData.article as LoadedArticle;
+      setArticle(readBackArticle);
+      setOriginalHtml(readBackArticle.html || '');
+      setStatus(data?.openUrl ? `保存成功，已回读最新内容：${data.openUrl}` : '保存成功，已回读最新内容');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : '保存失败');
     } finally {
