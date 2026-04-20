@@ -3,6 +3,10 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableHeader } from '@tiptap/extension-table-header';
+import { TableCell } from '@tiptap/extension-table-cell';
 import { useEffect } from 'react';
 
 type Props = {
@@ -18,6 +22,12 @@ export function VisualHtmlEditor({ html, onChange }: Props) {
         inline: false,
         allowBase64: true,
       }),
+      Table.configure({
+        resizable: true,
+      }),
+      TableRow,
+      TableHeader,
+      TableCell,
     ],
     content: html || '<p></p>',
     immediatelyRender: false,

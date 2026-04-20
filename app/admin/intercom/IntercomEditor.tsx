@@ -19,6 +19,11 @@ function countImages(html: string) {
   return matches ? matches.length : 0;
 }
 
+function countTables(html: string) {
+  const matches = String(html || '').match(/<table\b/gi);
+  return matches ? matches.length : 0;
+}
+
 export function IntercomEditor() {
   const [articleId, setArticleId] = useState('');
   const [article, setArticle] = useState<LoadedArticle | null>(null);
@@ -91,10 +96,18 @@ export function IntercomEditor() {
       setSelectedPath(chain);
 
       const imageCount = countImages(loadedArticle.html);
+      const tableCount = countTables(loadedArticle.html);
+      const mediaHints = [
+        imageCount > 0 ? `检测到 ${imageCount} 张图片` : '',
+        tableCount > 0 ? `检测到 ${tableCount} 个表格` : '',
+      ]
+        .filter(Boolean)
+        .join('；');
+
       setStatus(
         chain.length > 0
-          ? `文章已读取，已自动回填当前 collection${imageCount > 0 ? `；检测到 ${imageCount} 张图片` : ''}`
-          : `文章已读取，但未匹配到 collection 层级${imageCount > 0 ? `；检测到 ${imageCount} 张图片` : ''}`
+          ? `文章已读取，已自动回填当前 collection${mediaHints ? `；${mediaHints}` : ''}`
+          : `文章已读取，但未匹配到 collection 层级${mediaHints ? `；${mediaHints}` : ''}`
       );
     } catch (error) {
       setStatus(error instanceof Error ? error.message : '读取文章失败');
@@ -118,6 +131,13 @@ export function IntercomEditor() {
     const currentImageCount = countImages(article.html);
     if (originalImageCount > 0 && currentImageCount < originalImageCount) {
       setStatus(`已阻止保存：原文包含 ${originalImageCount} 张图片，当前编辑内容仅保留 ${currentImageCount} 张图片。请先确认图片已完整保留后再保存。`);
+      return;
+    }
+
+    const originalTableCount = countTables(originalHtml);
+    const currentTableCount = countTables(article.html);
+    if (originalTableCount > 0 && currentTableCount < originalTableCount) {
+      setStatus(`已阻止保存：原文包含 ${originalTableCount} 个表格，当前编辑内容仅保留 ${currentTableCount} 个表格。请先确认表格已完整保留后再保存。`);
       return;
     }
 
