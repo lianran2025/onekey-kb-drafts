@@ -85,6 +85,7 @@ export async function listReviewItems(params?: {
   status?: string;
   query?: string;
   staleDays?: number;
+  collectionId?: string;
 }) {
   const supabase = getSupabaseAdmin();
   const staleDays = params?.staleDays ?? 90;
@@ -117,6 +118,7 @@ export async function listReviewItems(params?: {
 
   const query = String(params?.query || '').trim().toLowerCase();
   const statusFilter = String(params?.status || '').trim();
+  const collectionIdFilter = String(params?.collectionId || '').trim();
 
   return ((articles || []) as Array<ArticleRow & { intercom_article_reviews?: ReviewRow[] | ReviewRow | null }>)
     .map((article) => {
@@ -142,6 +144,7 @@ export async function listReviewItems(params?: {
       } as ReviewRecord;
     })
     .filter((item) => item.state === 'published' && Boolean(item.publicUrl))
+    .filter((item) => (collectionIdFilter ? item.collectionId === collectionIdFilter : true))
     .filter((item) => (statusFilter ? item.reviewStatus === statusFilter : item.reviewStatus !== 'archived'))
     .filter((item) => {
       if (!staleThreshold) return true;

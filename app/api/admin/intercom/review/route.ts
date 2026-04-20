@@ -17,11 +17,13 @@ export async function GET(request: Request) {
     const statusFilter = url.searchParams.get('status') || '';
     const query = normalizeQuery(url.searchParams.get('query') || '');
     const staleDays = Number(url.searchParams.get('staleDays') || '90');
+    const collectionId = url.searchParams.get('collectionId') || '';
 
     const items = await listReviewItems({
       status: statusFilter,
       query,
       staleDays,
+      collectionId,
     });
 
     return NextResponse.json({ items });

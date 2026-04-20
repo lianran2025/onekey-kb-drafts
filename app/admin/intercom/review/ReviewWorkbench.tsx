@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 type ReviewStatus = 'pending' | 'needs_update' | 'no_change_needed' | 'archived';
 
@@ -43,6 +43,7 @@ function formatDate(value?: string) {
 export function ReviewWorkbench() {
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [collectionFilter, setCollectionFilter] = useState('');
   const [staleDays, setStaleDays] = useState('90');
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [drafts, setDrafts] = useState<DraftReviewMap>({});
@@ -51,16 +52,28 @@ export function ReviewWorkbench() {
   const [syncing, setSyncing] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
 
-  const loadList = async (params?: { status?: string; query?: string; staleDays?: string }) => {
+  const collectionOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const item of items) {
+      if (item.collectionId && item.collectionPathLabel) {
+        map.set(item.collectionId, item.collectionPathLabel);
+      }
+    }
+    return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
+  }, [items]);
+
+  const loadList = async (params?: { status?: string; query?: string; staleDays?: string; collectionId?: string }) => {
     setLoadingList(true);
     try {
       const search = new URLSearchParams();
       const nextStatus = params?.status ?? statusFilter;
       const nextQuery = params?.query ?? query;
       const nextStaleDays = params?.staleDays ?? staleDays;
+      const nextCollectionId = params?.collectionId ?? collectionFilter;
       if (nextStatus) search.set('status', nextStatus);
       if (nextQuery.trim()) search.set('query', nextQuery.trim());
       if (nextStaleDays) search.set('staleDays', nextStaleDays);
+      if (nextCollectionId) search.set('collectionId', nextCollectionId);
       const res = await fetch(`/api/admin/intercom/review?${search.toString()}`, { cache: 'no-store' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || '读取巡检列表失败');
@@ -154,7 +167,7 @@ export function ReviewWorkbench() {
 
   return (
     <div className="review-workbench-simple">
-      <div className="review-toolbar-simple">
+      <div className="review-toolbar-simple review-toolbar-simple-extended">
         <select
           className="publish-select"
           value={staleDays}
@@ -180,6 +193,22 @@ export function ReviewWorkbench() {
         >
           <option value="">主列表（排除已归档）</option>
           {STATUS_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+
+        <select
+          className="publish-select"
+          value={collectionFilter}
+          onChange={(e) => {
+            setCollectionFilter(e.target.value);
+            loadList({ collectionId: e.target.value });
+          }}
+        >
+          <option value="">全部 collection</option>
+          {collectionOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
