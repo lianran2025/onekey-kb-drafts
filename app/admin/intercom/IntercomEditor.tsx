@@ -24,6 +24,12 @@ function countTables(html: string) {
   return matches ? matches.length : 0;
 }
 
+function normalizeHeadingLevels(html: string) {
+  return String(html || '')
+    .replace(/<h1(\b[^>]*)>/gi, '<h2$1>')
+    .replace(/<\/h1>/gi, '</h2>');
+}
+
 export function IntercomEditor() {
   const [articleId, setArticleId] = useState('');
   const [article, setArticle] = useState<LoadedArticle | null>(null);
@@ -141,6 +147,8 @@ export function IntercomEditor() {
       return;
     }
 
+    const normalizedHtml = normalizeHeadingLevels(article.html);
+
     setLoading(true);
     setStatus('');
     try {
@@ -150,7 +158,7 @@ export function IntercomEditor() {
         body: JSON.stringify({
           draft: {
             title: article.title,
-            html: article.html,
+            html: normalizedHtml,
             needsConfirmation: [],
           },
           collectionId: selectedCollectionId,
@@ -160,7 +168,8 @@ export function IntercomEditor() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || '保存失败');
-      setOriginalHtml(article.html);
+      setArticle((current) => (current ? { ...current, html: normalizedHtml } : current));
+      setOriginalHtml(normalizedHtml);
       setStatus(data?.openUrl ? `保存成功：${data.openUrl}` : '保存成功');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : '保存失败');
