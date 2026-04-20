@@ -18,7 +18,6 @@ export function IntercomEditor() {
   const [article, setArticle] = useState<LoadedArticle | null>(null);
   const [collections, setCollections] = useState<CollectionItem[]>([]);
   const [selectedPath, setSelectedPath] = useState<string[]>([]);
-  const [editMode, setEditMode] = useState<'markdown' | 'html'>('markdown');
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -110,8 +109,7 @@ export function IntercomEditor() {
         body: JSON.stringify({
           draft: {
             title: article.title,
-            body: editMode === 'markdown' ? article.body : undefined,
-            html: editMode === 'html' ? article.html : undefined,
+            html: article.html,
             needsConfirmation: [],
           },
           collectionId: selectedCollectionId,
@@ -130,7 +128,7 @@ export function IntercomEditor() {
   };
 
   return (
-    <div className="intercom-editor">
+    <div className="intercom-editor visual-editor-shell">
       <div className="intercom-load-row">
         <input
           className="publish-select"
@@ -144,70 +142,69 @@ export function IntercomEditor() {
       </div>
 
       {article ? (
-        <div className="intercom-editor-stack">
-          <input
-            className="publish-select"
-            value={article.title}
-            onChange={(e) => setArticle({ ...article, title: e.target.value })}
-            placeholder="文章标题"
-          />
+        <div className="intercom-editor-stack visual-editor-stack">
+          <div className="surface-card visual-editor-meta">
+            <input
+              className="publish-select"
+              value={article.title}
+              onChange={(e) => setArticle({ ...article, title: e.target.value })}
+              placeholder="文章标题"
+            />
 
-          <div className="publish-label">
-            <span>当前 Collection</span>
-            <div className="cascade-grid">
-              {levels.map((level, index) => (
-                <select
-                  key={`${level.parentId ?? 'root'}-${index}`}
-                  className="publish-select"
-                  value={level.selected}
-                  onChange={(event) => updateLevel(index, event.target.value)}
-                >
-                  <option value="">请选择第 {index + 1} 级目录</option>
-                  {level.options.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              ))}
+            <div className="publish-label">
+              <span>当前 Collection</span>
+              <div className="cascade-grid">
+                {levels.map((level, index) => (
+                  <select
+                    key={`${level.parentId ?? 'root'}-${index}`}
+                    className="publish-select"
+                    value={level.selected}
+                    onChange={(event) => updateLevel(index, event.target.value)}
+                  >
+                    <option value="">请选择第 {index + 1} 级目录</option>
+                    {level.options.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                ))}
+              </div>
             </div>
+
+            {selectedCollection ? (
+              <div className="selected-collection">
+                <span className="badge">{selectedCollection.pathLabel}</span>
+              </div>
+            ) : null}
           </div>
 
-          {selectedCollection ? (
-            <div className="selected-collection">
-              <span className="badge">{selectedCollection.pathLabel}</span>
+          <div className="visual-editor-grid">
+            <div className="surface-card visual-editor-panel">
+              <div className="visual-editor-panel-head">
+                <h2 className="admin-feature-title">HTML 编辑</h2>
+                <span className="badge">直接保存 HTML</span>
+              </div>
+              <textarea
+                className="intercom-textarea visual-editor-textarea"
+                value={article.html}
+                onChange={(e) => setArticle({ ...article, html: e.target.value })}
+                placeholder="文章正文（HTML）"
+              />
+              <div className="row">
+                <button className="btn" type="button" onClick={saveArticle} disabled={loading}>
+                  {loading ? '保存中...' : '保存修改'}
+                </button>
+              </div>
             </div>
-          ) : null}
 
-          <div className="row">
-            <button className={`btn btn-small ${editMode === 'markdown' ? '' : 'btn-ghost'}`} type="button" onClick={() => setEditMode('markdown')}>
-              Markdown 编辑
-            </button>
-            <button className={`btn btn-small ${editMode === 'html' ? '' : 'btn-ghost'}`} type="button" onClick={() => setEditMode('html')}>
-              HTML 保真编辑
-            </button>
-          </div>
-
-          {editMode === 'markdown' ? (
-            <textarea
-              className="intercom-textarea"
-              value={article.body}
-              onChange={(e) => setArticle({ ...article, body: e.target.value })}
-              placeholder="文章正文（Markdown）"
-            />
-          ) : (
-            <textarea
-              className="intercom-textarea"
-              value={article.html}
-              onChange={(e) => setArticle({ ...article, html: e.target.value })}
-              placeholder="文章正文（HTML）"
-            />
-          )}
-
-          <div className="row">
-            <button className="btn" type="button" onClick={saveArticle} disabled={loading}>
-              {loading ? '保存中...' : '保存修改'}
-            </button>
+            <div className="surface-card visual-editor-panel">
+              <div className="visual-editor-panel-head">
+                <h2 className="admin-feature-title">渲染预览</h2>
+                <span className="badge">HTML 可视化</span>
+              </div>
+              <div className="article article-prose visual-editor-preview" dangerouslySetInnerHTML={{ __html: article.html }} />
+            </div>
           </div>
         </div>
       ) : null}
