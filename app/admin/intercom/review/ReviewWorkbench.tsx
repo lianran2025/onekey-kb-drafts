@@ -98,6 +98,18 @@ export function ReviewWorkbench() {
     return collectionOptions.filter((item) => (parentCollectionFilter ? item.parent === parentCollectionFilter : true));
   }, [collectionOptions, parentCollectionFilter]);
 
+  useEffect(() => {
+    if (collectionFilter && !childCollectionOptions.some((item) => item.value === collectionFilter)) {
+      setCollectionFilter('');
+    }
+  }, [collectionFilter, childCollectionOptions]);
+
+  useEffect(() => {
+    if (parentCollectionFilter && !collectionOptions.some((item) => item.parent === parentCollectionFilter)) {
+      setParentCollectionFilter('');
+    }
+  }, [parentCollectionFilter, collectionOptions]);
+
   const loadList = async (params?: { status?: string; query?: string; staleDays?: string; collectionId?: string }) => {
     setLoadingList(true);
     try {
@@ -223,8 +235,10 @@ export function ReviewWorkbench() {
           className="publish-select"
           value={statusFilter}
           onChange={(e) => {
-            setStatusFilter(e.target.value);
-            loadList({ status: e.target.value });
+            const nextStatus = e.target.value;
+            setStatusFilter(nextStatus);
+            setCollectionFilter('');
+            loadList({ status: nextStatus, collectionId: '' });
           }}
         >
           <option value="">主列表（排除已归档）</option>
@@ -242,7 +256,6 @@ export function ReviewWorkbench() {
             const nextParent = e.target.value;
             setParentCollectionFilter(nextParent);
             setCollectionFilter('');
-            loadList({ collectionId: '' });
           }}
         >
           <option value="">全部一级分类</option>
