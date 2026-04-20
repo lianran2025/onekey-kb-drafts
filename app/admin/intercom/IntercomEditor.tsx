@@ -14,9 +14,15 @@ type LoadedArticle = {
   collectionId: string;
 };
 
+function countImages(html: string) {
+  const matches = String(html || '').match(/<img\b/gi);
+  return matches ? matches.length : 0;
+}
+
 export function IntercomEditor() {
   const [articleId, setArticleId] = useState('');
   const [article, setArticle] = useState<LoadedArticle | null>(null);
+  const [originalHtml, setOriginalHtml] = useState('');
   const [collections, setCollections] = useState<CollectionItem[]>([]);
   const [selectedPath, setSelectedPath] = useState<string[]>([]);
   const [status, setStatus] = useState('');
@@ -73,6 +79,7 @@ export function IntercomEditor() {
 
       setCollections(loadedCollections);
       setArticle(loadedArticle);
+      setOriginalHtml(loadedArticle.html || '');
 
       const collectionMap = new Map<string, CollectionItem>(loadedCollections.map((item) => [item.id, item]));
       const chain: string[] = [];
@@ -83,7 +90,12 @@ export function IntercomEditor() {
       }
       setSelectedPath(chain);
 
-      setStatus(chain.length > 0 ? '文章已读取，已自动回填当前 collection' : '文章已读取，但未匹配到 collection 层级');
+      const imageCount = countImages(loadedArticle.html);
+      setStatus(
+        chain.length > 0
+          ? `文章已读取，已自动回填当前 collection${imageCount > 0 ? `；检测到 ${imageCount} 张图片` : ''}`
+          : `文章已读取，但未匹配到 collection 层级${imageCount > 0 ? `；检测到 ${imageCount} 张图片` : ''}`
+      );
     } catch (error) {
       setStatus(error instanceof Error ? error.message : '读取文章失败');
     } finally {
@@ -101,6 +113,14 @@ export function IntercomEditor() {
 
   const saveArticle = async () => {
     if (!article) return;
+
+    const originalImageCount = countImages(originalHtml);
+    const currentImageCount = countImages(article.html);
+    if (originalImageCount > 0 && currentImageCount < originalImageCount) {
+      setStatus(`已阻止保存：原文包含 ${originalImageCount} 张图片，当前编辑内容仅保留 ${currentImageCount} 张图片。请先确认图片已完整保留后再保存。`);
+      return;
+    }
+
     setLoading(true);
     setStatus('');
     try {
@@ -120,6 +140,7 @@ export function IntercomEditor() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || '保存失败');
+      setOriginalHtml(article.html);
       setStatus(data?.openUrl ? `保存成功：${data.openUrl}` : '保存成功');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : '保存失败');

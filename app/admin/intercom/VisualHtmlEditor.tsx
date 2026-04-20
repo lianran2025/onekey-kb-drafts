@@ -2,6 +2,7 @@
 
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import Image from '@tiptap/extension-image';
 import { useEffect } from 'react';
 
 type Props = {
@@ -11,7 +12,13 @@ type Props = {
 
 export function VisualHtmlEditor({ html, onChange }: Props) {
   const editor = useEditor({
-    extensions: [StarterKit],
+    extensions: [
+      StarterKit,
+      Image.configure({
+        inline: false,
+        allowBase64: true,
+      }),
+    ],
     content: html || '<p></p>',
     immediatelyRender: false,
     onUpdate: ({ editor }) => {
