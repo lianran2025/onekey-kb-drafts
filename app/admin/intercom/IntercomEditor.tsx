@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { VisualHtmlEditor } from './VisualHtmlEditor';
 
 type CollectionItem = { id: string; name: string; pathLabel: string; parentId?: string | null };
 
@@ -179,31 +180,21 @@ export function IntercomEditor() {
             ) : null}
           </div>
 
-          <div className="visual-editor-grid">
-            <div className="surface-card visual-editor-panel">
-              <div className="visual-editor-panel-head">
-                <h2 className="admin-feature-title">HTML 编辑</h2>
-                <span className="badge">直接保存 HTML</span>
-              </div>
-              <textarea
-                className="intercom-textarea visual-editor-textarea"
-                value={article.html}
-                onChange={(e) => setArticle({ ...article, html: e.target.value })}
-                placeholder="文章正文（HTML）"
-              />
-              <div className="row">
-                <button className="btn" type="button" onClick={saveArticle} disabled={loading}>
-                  {loading ? '保存中...' : '保存修改'}
-                </button>
-              </div>
+          <div className="surface-card visual-editor-panel">
+            <div className="visual-editor-panel-head">
+              <h2 className="admin-feature-title">文章内容</h2>
+              <span className="badge">所见即所得编辑</span>
             </div>
-
-            <div className="surface-card visual-editor-panel">
-              <div className="visual-editor-panel-head">
-                <h2 className="admin-feature-title">渲染预览</h2>
-                <span className="badge">HTML 可视化</span>
-              </div>
-              <div className="article article-prose visual-editor-preview" dangerouslySetInnerHTML={{ __html: article.html }} />
+            <VisualHtmlEditor
+              html={article.html}
+              onChange={(html) => {
+                setArticle((current) => (current ? { ...current, html } : current));
+              }}
+            />
+            <div className="row">
+              <button className="btn" type="button" onClick={saveArticle} disabled={loading}>
+                {loading ? '保存中...' : '保存修改'}
+              </button>
             </div>
           </div>
         </div>
