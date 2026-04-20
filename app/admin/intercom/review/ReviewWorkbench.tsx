@@ -26,6 +26,12 @@ type DraftReviewMap = Record<
   }
 >;
 
+type CollectionOption = {
+  value: string;
+  label: string;
+  parent: string;
+};
+
 const STATUS_OPTIONS: Array<{ value: ReviewStatus; label: string }> = [
   { value: 'pending', label: '待检查' },
   { value: 'needs_update', label: '待修改' },
@@ -40,9 +46,26 @@ function formatDate(value?: string) {
   return date.toLocaleDateString('zh-CN');
 }
 
+function parseCollectionPathLabel(label?: string) {
+  const raw = String(label || '').trim();
+  if (!raw) return { parent: '', child: '' };
+  const parts = raw.split('/').map((part) => part.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    return {
+      parent: parts[0],
+      child: parts.slice(1).join(' / '),
+    };
+  }
+  return {
+    parent: raw,
+    child: raw,
+  };
+}
+
 export function ReviewWorkbench() {
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [parentCollectionFilter, setParentCollectionFilter] = useState('');
   const [collectionFilter, setCollectionFilter] = useState('');
   const [staleDays, setStaleDays] = useState('90');
   const [items, setItems] = useState<ReviewItem[]>([]);
@@ -53,14 +76,27 @@ export function ReviewWorkbench() {
   const [savingId, setSavingId] = useState<string | null>(null);
 
   const collectionOptions = useMemo(() => {
-    const map = new Map<string, string>();
+    const map = new Map<string, CollectionOption>();
     for (const item of items) {
       if (item.collectionId && item.collectionPathLabel) {
-        map.set(item.collectionId, item.collectionPathLabel);
+        const parsed = parseCollectionPathLabel(item.collectionPathLabel);
+        map.set(item.collectionId, {
+          value: item.collectionId,
+          label: parsed.child || item.collectionPathLabel,
+          parent: parsed.parent || '未分类',
+        });
       }
     }
-    return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
+    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label, 'zh-CN'));
   }, [items]);
+
+  const parentCollectionOptions = useMemo(() => {
+    return Array.from(new Set(collectionOptions.map((item) => item.parent))).sort((a, b) => a.localeCompare(b, 'zh-CN'));
+  }, [collectionOptions]);
+
+  const childCollectionOptions = useMemo(() => {
+    return collectionOptions.filter((item) => (parentCollectionFilter ? item.parent === parentCollectionFilter : true));
+  }, [collectionOptions, parentCollectionFilter]);
 
   const loadList = async (params?: { status?: string; query?: string; staleDays?: string; collectionId?: string }) => {
     setLoadingList(true);
@@ -167,7 +203,7 @@ export function ReviewWorkbench() {
 
   return (
     <div className="review-workbench-simple">
-      <div className="review-toolbar-simple review-toolbar-simple-extended">
+      <div className="review-toolbar-simple review-toolbar-simple-extended-two-level">
         <select
           className="publish-select"
           value={staleDays}
@@ -201,14 +237,32 @@ export function ReviewWorkbench() {
 
         <select
           className="publish-select"
+          value={parentCollectionFilter}
+          onChange={(e) => {
+            const nextParent = e.target.value;
+            setParentCollectionFilter(nextParent);
+            setCollectionFilter('');
+            loadList({ collectionId: '' });
+          }}
+        >
+          <option value="">全部一级分类</option>
+          {parentCollectionOptions.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+
+        <select
+          className="publish-select"
           value={collectionFilter}
           onChange={(e) => {
             setCollectionFilter(e.target.value);
             loadList({ collectionId: e.target.value });
           }}
         >
-          <option value="">全部 collection</option>
-          {collectionOptions.map((option) => (
+          <option value="">全部二级 collection</option>
+          {childCollectionOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
