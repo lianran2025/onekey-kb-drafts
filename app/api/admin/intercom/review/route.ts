@@ -19,14 +19,19 @@ export async function GET(request: Request) {
     const staleDays = Number(url.searchParams.get('staleDays') || '90');
     const collectionId = url.searchParams.get('collectionId') || '';
 
-    const items = await listReviewItems({
+    const result = await listReviewItems({
       status: statusFilter,
       query,
       staleDays,
       collectionId,
+      includeFilterOptions: true,
     });
 
-    return NextResponse.json({ items });
+    if (Array.isArray(result)) {
+      return NextResponse.json({ items: result, filterOptions: [] });
+    }
+
+    return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : '读取巡检列表失败' },

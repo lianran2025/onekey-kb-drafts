@@ -86,6 +86,7 @@ export async function listReviewItems(params?: {
   query?: string;
   staleDays?: number;
   collectionId?: string;
+  includeFilterOptions?: boolean;
 }) {
   const supabase = getSupabaseAdmin();
   const staleDays = params?.staleDays ?? 90;
@@ -120,7 +121,7 @@ export async function listReviewItems(params?: {
   const statusFilter = String(params?.status || '').trim();
   const collectionIdFilter = String(params?.collectionId || '').trim();
 
-  return ((articles || []) as Array<ArticleRow & { intercom_article_reviews?: ReviewRow[] | ReviewRow | null }>)
+  const normalizedItems = ((articles || []) as Array<ArticleRow & { intercom_article_reviews?: ReviewRow[] | ReviewRow | null }>)
     .map((article) => {
       const reviewRaw = Array.isArray(article.intercom_article_reviews)
         ? article.intercom_article_reviews[0]
@@ -158,10 +159,23 @@ export async function listReviewItems(params?: {
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(query));
     });
+
+  const filterOptions = normalizedItems
+    .filter((item) => item.state === 'published' && Boolean(item.publicUrl))
+    .map((item) => ({
+      collectionId: item.collectionId || '',
+      collectionPathLabel: item.collectionPathLabel || '',
+    }))
+    .filter((item, index, array) => item.collectionId && array.findIndex((other) => other.collectionId === item.collectionId) === index);
+
+  return params?.includeFilterOptions
+    ? { items: normalizedItems, filterOptions }
+    : normalizedItems;
 }
 
 export async function getReviewRecord(articleId: string) {
-  const items = await listReviewItems({ staleDays: 0, query: articleId });
+  const result = await listReviewItems({ staleDays: 0, query: articleId });
+  const items = Array.isArray(result) ? result : result.items;
   return items.find((item) => item.articleId === articleId) || null;
 }
 

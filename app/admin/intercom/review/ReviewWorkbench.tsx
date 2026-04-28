@@ -18,6 +18,11 @@ type ReviewItem = {
   archivedAt?: string;
 };
 
+type FilterOption = {
+  collectionId: string;
+  collectionPathLabel: string;
+};
+
 type DraftReviewMap = Record<
   string,
   {
@@ -69,6 +74,7 @@ export function ReviewWorkbench() {
   const [collectionFilter, setCollectionFilter] = useState('');
   const [staleDays, setStaleDays] = useState('90');
   const [items, setItems] = useState<ReviewItem[]>([]);
+  const [filterOptionsRaw, setFilterOptionsRaw] = useState<FilterOption[]>([]);
   const [drafts, setDrafts] = useState<DraftReviewMap>({});
   const [status, setStatus] = useState('');
   const [loadingList, setLoadingList] = useState(false);
@@ -77,7 +83,7 @@ export function ReviewWorkbench() {
 
   const collectionOptions = useMemo(() => {
     const map = new Map<string, CollectionOption>();
-    for (const item of items) {
+    for (const item of filterOptionsRaw) {
       if (item.collectionId && item.collectionPathLabel) {
         const parsed = parseCollectionPathLabel(item.collectionPathLabel);
         map.set(item.collectionId, {
@@ -88,7 +94,7 @@ export function ReviewWorkbench() {
       }
     }
     return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label, 'zh-CN'));
-  }, [items]);
+  }, [filterOptionsRaw]);
 
   const parentCollectionOptions = useMemo(() => {
     return Array.from(new Set(collectionOptions.map((item) => item.parent))).sort((a, b) => a.localeCompare(b, 'zh-CN'));
@@ -127,6 +133,7 @@ export function ReviewWorkbench() {
       if (!res.ok) throw new Error(data?.error || '读取巡检列表失败');
       const nextItems = data.items || [];
       setItems(nextItems);
+      setFilterOptionsRaw(data.filterOptions || []);
       setDrafts(
         Object.fromEntries(
           nextItems.map((item: ReviewItem) => [
@@ -237,8 +244,7 @@ export function ReviewWorkbench() {
           onChange={(e) => {
             const nextStatus = e.target.value;
             setStatusFilter(nextStatus);
-            setCollectionFilter('');
-            loadList({ status: nextStatus, collectionId: '' });
+            loadList({ status: nextStatus });
           }}
         >
           <option value="">主列表（排除已归档）</option>
@@ -255,7 +261,17 @@ export function ReviewWorkbench() {
           onChange={(e) => {
             const nextParent = e.target.value;
             setParentCollectionFilter(nextParent);
-            setCollectionFilter('');
+            if (nextParent) {
+              const firstAvailable = collectionOptions.find((item) => item.parent === nextParent);
+              const nextCollectionId = collectionFilter && collectionOptions.find((item) => item.value === collectionFilter && item.parent === nextParent)
+                ? collectionFilter
+                : firstAvailable?.value || '';
+              setCollectionFilter(nextCollectionId);
+              loadList({ collectionId: nextCollectionId });
+            } else {
+              setCollectionFilter('');
+              loadList({ collectionId: '' });
+            }
           }}
         >
           <option value="">全部一级分类</option>
