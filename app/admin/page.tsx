@@ -6,9 +6,7 @@ const CARDS = [
   {
     title: '文章管理',
     description: '查看和管理本地 KB 草稿文章，进入单篇文章预览、发布和删除操作。',
-    href: '/admin',
-    disabled: true,
-    note: '当前页即文章管理首页',
+    href: '/admin/kb',
   },
   {
     title: 'Intercom 修改',
@@ -37,25 +35,15 @@ export default async function AdminPage() {
       </header>
 
       <section className="admin-feature-grid">
-        {CARDS.map((card) =>
-          card.disabled ? (
-            <div key={card.title} className="surface-card admin-feature-card admin-feature-card-disabled">
-              <div className="admin-feature-head">
-                <h2 className="admin-feature-title">{card.title}</h2>
-                {card.note ? <span className="badge">{card.note}</span> : null}
-              </div>
-              <p className="muted">{card.description}</p>
+        {CARDS.map((card) => (
+          <a key={card.title} href={card.href} className="surface-card admin-feature-card">
+            <div className="admin-feature-head">
+              <h2 className="admin-feature-title">{card.title}</h2>
+              <span className="badge">进入</span>
             </div>
-          ) : (
-            <a key={card.title} href={card.href} className="surface-card admin-feature-card">
-              <div className="admin-feature-head">
-                <h2 className="admin-feature-title">{card.title}</h2>
-                <span className="badge">进入</span>
-              </div>
-              <p className="muted">{card.description}</p>
-            </a>
-          )
-        )}
+            <p className="muted">{card.description}</p>
+          </a>
+        ))}
       </section>
     </div>
   );
