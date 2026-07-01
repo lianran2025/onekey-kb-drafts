@@ -2,6 +2,43 @@
 
 import { useCallback, useState } from 'react';
 
+function escapeHtml(value: string) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function normalizeCodeBlocks(root: HTMLElement) {
+  root.querySelectorAll('pre').forEach((pre) => {
+    const lines = (pre.textContent || '').replace(/\n$/, '').split('\n');
+    pre.innerHTML = lines.map(escapeHtml).join('<br>');
+  });
+}
+
+function normalizeInterruptedOrderedLists(root: HTMLElement) {
+  root.querySelectorAll('ol').forEach((ol) => {
+    const items = Array.from(ol.children).filter((child) => child.tagName.toLowerCase() === 'li');
+    if (items.length !== 1) return;
+
+    const start = Number(ol.getAttribute('start') || '1');
+    if (!Number.isFinite(start) || start < 1) return;
+
+    const paragraph = document.createElement('p');
+    paragraph.innerHTML = `${start}. ${(items[0] as HTMLElement).innerHTML}`;
+    ol.replaceWith(paragraph);
+  });
+}
+
+function getClipboardHtml(el: HTMLElement) {
+  const clone = el.cloneNode(true) as HTMLElement;
+  normalizeCodeBlocks(clone);
+  normalizeInterruptedOrderedLists(clone);
+  return clone.innerHTML;
+}
+
 export function CopyButtons({
   articleSelector,
 }: {
@@ -18,7 +55,7 @@ export function CopyButtons({
     }
 
     try {
-      const html = (el as HTMLElement).innerHTML;
+      const html = getClipboardHtml(el as HTMLElement);
       const text = (el as HTMLElement).innerText;
 
       const item = new ClipboardItem({
