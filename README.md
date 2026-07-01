@@ -99,9 +99,19 @@ INTERCOM_LOCALE=zh-CN
 - `INTERCOM_REGION` 支持 `us`、`eu`、`au`
 - 后台会通过 Intercom API 读取 collection 列表
 - 发布按钮会直接把当前文章渲染后的 HTML 发布到你选择的 collection
-- 发布前会自动对 HTML 结构做清洗，尽量压缩多余段落与换行，并对标题、段落、列表、提示块、链接等标签做 Intercom 样式适配
+- 发布前会自动对 HTML 结构做清洗，输出尽量贴近 Intercom 原生编辑器的语义标签，并保留代码块换行
+- 被代码块或段落打断的连续有序列表会合并成一个 `<ol>`，避免 Intercom 把多个 `start` 列表识别成多个从 1 开始的列表
+- 后台文章页会显示 Intercom 发布预览和兼容性校验结果
+- 发布前如发现 Intercom 不支持的标签、属性、嵌套列表、异常表格、不可用图片或 iframe，会阻止发布并返回具体原因
+- 发布成功后会回读 Intercom 文章 HTML，并再次做基础校验
 - 参考来源模块不会被发布到 Intercom
 - Intercom token 仅在 Vercel 服务端使用，不会暴露到前端
+
+写文章时请尽量使用 Intercom 友好的 Markdown：
+
+- 简单连续步骤可以使用有序列表
+- 如果步骤中包含代码块、多段说明或截图，优先使用 `### 1. 步骤名称` 这类步骤小标题，不要在有序列表项之间插入未缩进的代码块
+- 避免复杂嵌套列表、装饰性 HTML 和自定义样式
 
 ## Vercel 私有 API（推荐给对话式流程）
 

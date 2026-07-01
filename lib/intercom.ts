@@ -40,6 +40,17 @@ export type IntercomArticleListItem = {
   publicUrl: string;
 };
 
+export type IntercomHtmlIssue = {
+  level: 'error' | 'warning';
+  message: string;
+  context?: string;
+};
+
+export type IntercomHtmlValidation = {
+  ok: boolean;
+  issues: IntercomHtmlIssue[];
+};
+
 type IntercomCollectionRaw = {
   id: string | number;
   name?: string;
@@ -207,17 +218,131 @@ function renderMarkdownBlocks(text: string) {
   return html;
 }
 
-function applyInlineStyleToTag(html: string, tag: string, style: string) {
-  const pattern = new RegExp(`<${tag}(\\s[^>]*)?>`, 'gi');
-  return html.replace(pattern, (_match, attrs = '') => {
-    if (/style\s*=\s*/i.test(attrs)) return `<${tag}${attrs}>`;
-    return `<${tag}${attrs} style="${style}">`;
-  });
-}
-
 function unwrapTag(html: string, tag: string) {
   const pattern = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\/${tag}>`, 'gi');
   return html.replace(pattern, '$1');
+}
+
+function getTagName(block: string) {
+  const match = block.match(/^<([a-z0-9]+)/i);
+  return match ? match[1].toLowerCase() : '';
+}
+
+function getOrderedListStart(block: string) {
+  const match = block.match(/^<ol\b([^>]*)>/i);
+  if (!match) return null;
+  const startMatch = match[1].match(/\bstart=["']?(\d+)["']?/i);
+  const start = startMatch ? Number(startMatch[1]) : 1;
+  return Number.isFinite(start) && start > 0 ? start : 1;
+}
+
+function getSingleOrderedListItem(block: string) {
+  const match = block.match(/^<ol\b[^>]*>\s*<li\b[^>]*>([\s\S]*?)<\/li>\s*<\/ol>$/i);
+  return match ? match[1] : null;
+}
+
+function splitTopLevelBlocks(html: string) {
+  const blocks: string[] = [];
+  const pattern = /<(h[1-6]|p|pre|ul|ol|blockquote|table)\b[\s\S]*?<\/\1>|<hr\b[^>]*\/?>/gi;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(html))) {
+    const before = html.slice(lastIndex, match.index).trim();
+    if (before) blocks.push(before);
+    blocks.push(match[0]);
+    lastIndex = pattern.lastIndex;
+  }
+
+  const after = html.slice(lastIndex).trim();
+  if (after) blocks.push(after);
+  return blocks;
+}
+
+function mergeInterruptedOrderedLists(html: string) {
+  const blocks = splitTopLevelBlocks(html);
+  if (blocks.length === 0) return html;
+
+  const output: string[] = [];
+  let index = 0;
+
+  const hasNextConsecutiveList = (fromIndex: number, expectedStart: number) => {
+    for (let cursor = fromIndex; cursor < blocks.length; cursor += 1) {
+      const tag = getTagName(blocks[cursor]);
+      if (/^h[1-6]$/.test(tag) || tag === 'hr') return false;
+
+      const item = getSingleOrderedListItem(blocks[cursor]);
+      const start = getOrderedListStart(blocks[cursor]);
+      if (item !== null) return start === expectedStart;
+    }
+    return false;
+  };
+
+  while (index < blocks.length) {
+    const firstItem = getSingleOrderedListItem(blocks[index]);
+    const firstStart = getOrderedListStart(blocks[index]);
+
+    if (firstItem === null || firstStart === null) {
+      output.push(blocks[index]);
+      index += 1;
+      continue;
+    }
+
+    const items: string[] = [];
+    let expectedStart = firstStart;
+    let cursor = index;
+
+    while (cursor < blocks.length) {
+      const item = getSingleOrderedListItem(blocks[cursor]);
+      const start = getOrderedListStart(blocks[cursor]);
+      if (item === null || start !== expectedStart) break;
+
+      const itemBlocks = [item];
+      cursor += 1;
+
+      while (cursor < blocks.length) {
+        const nextItem = getSingleOrderedListItem(blocks[cursor]);
+        const nextStart = getOrderedListStart(blocks[cursor]);
+        const nextTag = getTagName(blocks[cursor]);
+
+        if (nextItem !== null && nextStart === expectedStart + 1) break;
+        if (/^h[1-6]$/.test(nextTag) || nextTag === 'hr') break;
+        if (nextItem !== null && nextStart !== expectedStart + 1) break;
+        if (nextTag !== 'pre' && !hasNextConsecutiveList(cursor + 1, expectedStart + 1)) break;
+
+        itemBlocks.push(blocks[cursor]);
+        cursor += 1;
+      }
+
+      items.push(`<li>${itemBlocks.join('')}</li>`);
+      expectedStart += 1;
+    }
+
+    if (items.length <= 1) {
+      output.push(blocks[index]);
+      index += 1;
+      continue;
+    }
+
+    const startAttr = firstStart === 1 ? '' : ` start="${firstStart}"`;
+    output.push(`<ol${startAttr}>${items.join('')}</ol>`);
+    index = cursor;
+  }
+
+  return output.join('');
+}
+
+function normalizePreCodeBlocks(html: string) {
+  return html.replace(/<pre\b([^>]*)>\s*<code\b([^>]*)>([\s\S]*?)<\/code>\s*<\/pre>/gi, (_match, preAttrs = '', codeAttrs = '', content = '') => {
+    const normalized = String(content).replace(/^\n+|\n+$/g, '');
+    return `<pre${preAttrs}><code${codeAttrs}>${normalized}</code></pre>`;
+  });
+}
+
+function stripIntercomUnsafeAttributes(html: string) {
+  return html
+    .replace(/\s(?:class|id|style)=["'][^"']*["']/gi, '')
+    .replace(/\s(?:target|rel)=["'][^"']*["']/gi, '');
 }
 
 function normalizeIntercomStructure(html: string) {
@@ -233,23 +358,197 @@ function normalizeIntercomStructure(html: string) {
   output = output.replace(/(<\/p>)\s*(<ul>|<ol>)/gi, '$1$2');
   output = output.replace(/<p>\s*(<(?:ul|ol)[\s\S]*?<\/(?:ul|ol)>)\s*<\/p>/gi, '$1');
   output = unwrapTag(output, 'div');
-  output = output.replace(/\n+/g, '');
+  output = output.replace(/<h[3-6]\b[^>]*>/gi, '<h2>');
+  output = output.replace(/<\/h[3-6]>/gi, '</h2>');
+  output = normalizePreCodeBlocks(output);
+  output = mergeInterruptedOrderedLists(output);
+  output = stripIntercomUnsafeAttributes(output);
   output = output.replace(/>\s+</g, '><');
   return output.trim();
 }
 
-function toIntercomHtml(html: string) {
-  let output = normalizeIntercomStructure(html);
-  output = applyInlineStyleToTag(output, 'h1', 'font-size:32px;line-height:1.35;margin:0 0 14px;font-weight:700;color:#111827;');
-  output = applyInlineStyleToTag(output, 'h2', 'font-size:24px;line-height:1.45;margin:16px 0 8px;font-weight:700;color:#111827;');
-  output = applyInlineStyleToTag(output, 'h3', 'font-size:20px;line-height:1.5;margin:12px 0 6px;font-weight:700;color:#111827;');
-  output = applyInlineStyleToTag(output, 'p', 'margin:6px 0;line-height:1.65;color:#111827;');
-  output = applyInlineStyleToTag(output, 'ul', 'margin:6px 0 6px 22px;padding:0;');
-  output = applyInlineStyleToTag(output, 'ol', 'margin:6px 0 6px 22px;padding:0;');
-  output = applyInlineStyleToTag(output, 'li', 'margin:2px 0;line-height:1.65;color:#111827;');
-  output = applyInlineStyleToTag(output, 'a', 'color:#2563eb;text-decoration:underline;');
-  output = applyInlineStyleToTag(output, 'strong', 'font-weight:700;color:#111827;');
-  return output;
+export function toIntercomHtml(html: string) {
+  return normalizeIntercomStructure(html);
+}
+
+const INTERCOM_ALLOWED_TAGS = new Set([
+  'p',
+  'br',
+  'hr',
+  'h1',
+  'h2',
+  'a',
+  'img',
+  'ul',
+  'ol',
+  'li',
+  'table',
+  'thead',
+  'tbody',
+  'tr',
+  'th',
+  'td',
+  'iframe',
+  'pre',
+  'code',
+  'strong',
+  'em',
+]);
+
+const INTERCOM_ALLOWED_ATTRS: Record<string, Set<string>> = {
+  a: new Set(['href']),
+  img: new Set(['src', 'alt', 'width', 'height']),
+  iframe: new Set(['src', 'width', 'height', 'frameborder', 'allow', 'allowfullscreen']),
+  td: new Set(['colspan', 'rowspan']),
+  th: new Set(['colspan', 'rowspan']),
+  ol: new Set(['start']),
+};
+
+function getTagAttributes(tagSource: string) {
+  const attrs: Array<{ name: string; value: string }> = [];
+  const attrSource = tagSource.replace(/^<\/?[a-z0-9-]+/i, '').replace(/\/?>$/, '');
+  const pattern = /([a-z0-9:-]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>/]+)))?/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(attrSource))) {
+    attrs.push({
+      name: match[1].toLowerCase(),
+      value: match[2] ?? match[3] ?? match[4] ?? '',
+    });
+  }
+
+  return attrs;
+}
+
+function isAllowedIframeSrc(src: string) {
+  try {
+    const url = new URL(src);
+    const host = url.hostname.replace(/^www\./, '').toLowerCase();
+    return [
+      'youtube.com',
+      'youtube-nocookie.com',
+      'youtu.be',
+      'wistia.com',
+      'wistia.net',
+      'vimeo.com',
+      'player.vimeo.com',
+      'loom.com',
+      'vidyard.com',
+      'stream-io-video.com',
+    ].some((allowed) => host === allowed || host.endsWith(`.${allowed}`));
+  } catch {
+    return false;
+  }
+}
+
+export function validateIntercomHtml(html: string): IntercomHtmlValidation {
+  const source = String(html || '').trim();
+  const issues: IntercomHtmlIssue[] = [];
+  const tags = source.match(/<\/?[a-z0-9-]+(?:\s[^<>]*)?>/gi) || [];
+
+  for (const tagSource of tags) {
+    const tagMatch = tagSource.match(/^<\/?([a-z0-9-]+)/i);
+    const tag = tagMatch?.[1]?.toLowerCase();
+    if (!tag) continue;
+
+    if (!INTERCOM_ALLOWED_TAGS.has(tag)) {
+      issues.push({
+        level: 'error',
+        message: `Intercom 不支持 <${tag}> 标签`,
+        context: tagSource,
+      });
+      continue;
+    }
+
+    if (/^<\//.test(tagSource)) continue;
+
+    const allowedAttrs = INTERCOM_ALLOWED_ATTRS[tag] || new Set<string>();
+    for (const attr of getTagAttributes(tagSource)) {
+      if (!allowedAttrs.has(attr.name)) {
+        issues.push({
+          level: 'error',
+          message: `<${tag}> 不支持 ${attr.name} 属性`,
+          context: tagSource,
+        });
+      }
+    }
+  }
+
+  source.replace(/<li\b[^>]*>([\s\S]*?)<\/li>/gi, (match, content) => {
+    if (!stripTags(content).trim() && !/<(?:img|iframe|pre|code)\b/i.test(content)) {
+      issues.push({ level: 'error', message: '存在空的列表项', context: match.slice(0, 120) });
+    }
+    if (/<(?:ul|ol)\b/i.test(content)) {
+      issues.push({ level: 'error', message: 'Intercom 文章发布中应避免嵌套列表', context: match.slice(0, 120) });
+    }
+    return match;
+  });
+
+  source.replace(/<ol\b[^>]*>([\s\S]*?)<\/ol>/gi, (match, content) => {
+    if (!/<li\b/i.test(content)) {
+      issues.push({ level: 'error', message: '<ol> 中缺少 <li>', context: match.slice(0, 120) });
+    }
+    return match;
+  });
+
+  source.replace(/<ul\b[^>]*>([\s\S]*?)<\/ul>/gi, (match, content) => {
+    if (!/<li\b/i.test(content)) {
+      issues.push({ level: 'error', message: '<ul> 中缺少 <li>', context: match.slice(0, 120) });
+    }
+    return match;
+  });
+
+  source.replace(/<table\b[^>]*>([\s\S]*?)<\/table>/gi, (match, content) => {
+    if (/<table\b/i.test(content)) {
+      issues.push({ level: 'error', message: 'Intercom 不支持嵌套表格', context: match.slice(0, 120) });
+    }
+    if (!/<tr\b/i.test(content) || !/<t[dh]\b/i.test(content)) {
+      issues.push({ level: 'error', message: '<table> 至少需要包含一行和一个单元格', context: match.slice(0, 120) });
+    }
+    return match;
+  });
+
+  source.replace(/<img\b([^>]*)>/gi, (match, attrsSource) => {
+    const attrs = getTagAttributes(`<img${attrsSource}>`);
+    const src = attrs.find((attr) => attr.name === 'src')?.value || '';
+    const alt = attrs.find((attr) => attr.name === 'alt')?.value || '';
+    if (!/^https?:\/\//i.test(src)) {
+      issues.push({ level: 'error', message: '<img> 需要使用公开可访问的完整 URL', context: match });
+    }
+    if (!alt.trim()) {
+      issues.push({ level: 'warning', message: '<img> 建议补充 alt 文本', context: match });
+    }
+    return match;
+  });
+
+  source.replace(/<iframe\b([^>]*)>/gi, (match, attrsSource) => {
+    const attrs = getTagAttributes(`<iframe${attrsSource}>`);
+    const src = attrs.find((attr) => attr.name === 'src')?.value || '';
+    if (!isAllowedIframeSrc(src)) {
+      issues.push({ level: 'error', message: '<iframe> 仅支持 Intercom 允许的视频嵌入来源', context: match });
+    }
+    return match;
+  });
+
+  source.replace(/<pre\b[^>]*>([\s\S]*?)<\/pre>/gi, (match, content) => {
+    if (!/<code\b/i.test(content)) {
+      issues.push({ level: 'warning', message: '<pre> 建议包裹 <code>，便于 Intercom 保留代码块语义', context: match.slice(0, 120) });
+    }
+    return match;
+  });
+
+  return {
+    ok: !issues.some((issue) => issue.level === 'error'),
+    issues,
+  };
+}
+
+export function getIntercomPublishHtml(html: string) {
+  const intercomHtml = toIntercomHtml(html);
+  return {
+    html: intercomHtml,
+    validation: validateIntercomHtml(intercomHtml),
+  };
 }
 
 function renderArticleHtml(article: IntercomDraftArticle, locale: string) {
